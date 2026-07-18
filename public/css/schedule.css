@@ -1,0 +1,76 @@
+/* ---- Daily Schedule -----------------------------------------------
+   Own accent (a warm amber/gold, "planner" feel) so it reads as its own
+   subsystem, same approach as airdrop.css. Reuses base tokens from
+   style.css (--card, --ink, --radius, --shadow etc.) for consistency.
+----------------------------------------------------------------------*/
+:root {
+  --schedule-accent: #b8860b;
+  --schedule-accent-dark: #8a6408;
+  --schedule-accent-soft: rgba(184, 134, 11, 0.12);
+}
+
+.schedule-page-sub {
+  color: var(--ink-soft);
+  margin: -12px 0 18px;
+  font-size: 0.95rem;
+}
+
+.schedule-grid { display: flex; flex-direction: column; gap: 10px; }
+.schedule-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+  border-left: 4px solid var(--schedule-accent);
+}
+.schedule-day-label {
+  font-family: Georgia, serif;
+  font-weight: bold;
+  font-size: 1rem;
+  width: 70px;
+  flex-shrink: 0;
+  color: var(--schedule-accent-dark);
+}
+.schedule-slots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  flex: 1;
+}
+.schedule-slot {
+  background: var(--schedule-accent-soft);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+.schedule-slot.empty { color: var(--margin); font-style: italic; }
+.schedule-input {
+  border: 1px solid rgba(184, 134, 11, 0.4);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: var(--card);
+  color: var(--ink);
+}
+.schedule-input:focus { outline: none; border-color: var(--schedule-accent); }
+
+.schedule-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .schedule-row { flex-direction: column; align-items: stretch; }
+  .schedule-slots { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,110 @@
+/* ---- AirDrop --------------------------------------------------------
+   Deliberately its own accent color (blue, "signal" feel) so it reads as
+   a distinct tool living on the same site rather than part of Lesson
+   Tracker. Reuses the base design tokens (--paper, --card, --ink, etc.)
+   from style.css for consistency, but every class here is prefixed
+   .airdrop- so nothing collides or gets mixed up with lesson-tracker CSS.
+-----------------------------------------------------------------------*/
+:root {
+  --airdrop-accent: #2f6690;
+  --airdrop-accent-dark: #234d6d;
+  --airdrop-accent-soft: rgba(47, 102, 144, 0.12);
+}
+
+.airdrop-page-sub {
+  color: var(--ink-soft);
+  margin: -12px 0 18px;
+  font-size: 0.95rem;
+}
+
+.airdrop-dropzone {
+  border: 2px dashed var(--airdrop-accent);
+  border-radius: var(--radius);
+  padding: 34px 16px;
+  text-align: center;
+  color: var(--airdrop-accent-dark);
+  cursor: pointer;
+  background: var(--airdrop-accent-soft);
+  font-weight: 600;
+}
+.airdrop-dropzone .hint { font-weight: 400; }
+.airdrop-dropzone.drag {
+  background: rgba(47, 102, 144, 0.22);
+  border-color: var(--airdrop-accent-dark);
+}
+
+.airdrop-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.airdrop-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  border: 1px solid rgba(31, 44, 76, 0.06);
+  border-left: 4px solid var(--airdrop-accent);
+}
+.airdrop-item .ficon {
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  background: var(--airdrop-accent);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: bold; flex-shrink: 0;
+}
+.airdrop-item .info { flex: 1; min-width: 0; }
+.airdrop-item .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.airdrop-item .meta-row { font-size: 0.78rem; color: var(--ink-soft); display: flex; gap: 8px; flex-wrap: wrap; }
+.airdrop-item .expiry { font-weight: 600; }
+.airdrop-item .expiry.soon { color: var(--pen); }
+.airdrop-item a.dl {
+  text-decoration: none;
+  color: #fff;
+  background: var(--airdrop-accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 7px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.airdrop-item a.dl:hover { background: var(--airdrop-accent-dark); }
+
+.airdrop-hint-banner {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-top: 10px;
+  text-align: center;
+}
+
+.airdrop-usage-wrap { margin-top: 14px; }
+.airdrop-usage-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(47, 102, 144, 0.15);
+  overflow: hidden;
+}
+.airdrop-usage-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--airdrop-accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.airdrop-usage-bar.full { background: var(--pen); }
+.airdrop-usage-label {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin-top: 4px;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .airdrop-dropzone { padding: 26px 14px; }
+}
+
+@media (max-width: 420px) {
+  .airdrop-item { flex-wrap: wrap; }
+  .airdrop-item .info { min-width: 140px; }
+  .airdrop-item a.dl { margin-left: auto; }
+}

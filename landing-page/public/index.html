@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Websites on this computer</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="head">
+      <h1>🏠 Websites on this computer</h1>
+      <p class="sub">
+        Anything running on this PC can show up here with its own port -
+        tap a card to open it in a new tab. This page itself always lives
+        at just this address, no port needed; each site below opens on
+        its own port.
+      </p>
+    </header>
+
+    <div id="sites-list" class="sites-grid">
+      <div class="empty-state">Loading…</div>
+    </div>
+
+    <section class="panel add-panel">
+      <h2 id="add-panel-title">Add a website</h2>
+      <div class="add-row">
+        <input type="text" id="site-name" placeholder="Name (e.g. Plex, Router admin)" maxlength="60" />
+        <input type="number" id="site-port" placeholder="Port" min="1" max="65535" />
+      </div>
+      <div class="add-row">
+        <input type="text" id="site-path" placeholder="Path (optional, e.g. /admin)" maxlength="200" />
+        <input type="text" id="site-note" placeholder="Note (optional)" maxlength="200" />
+      </div>
+      <div class="add-row add-actions">
+        <button class="btn" id="site-save-btn">Add</button>
+        <button class="btn secondary" id="site-cancel-edit-btn" hidden>Cancel edit</button>
+      </div>
+      <div id="add-error"></div>
+    </section>
+
+    <footer class="foot">DEX Labs Landing Page</footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

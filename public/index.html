@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>DEX Labs</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/airdrop.css" />
+<link rel="stylesheet" href="/css/schedule.css" />
+<link rel="stylesheet" href="/css/timers.css" />
+<link rel="stylesheet" href="/css/settings.css" />
+<link rel="stylesheet" href="/css/ytdownload.css" />
+<link rel="stylesheet" href="/css/study.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" id="brand-home">
+      <span class="tab-mark"></span>DEX Labs<span class="subsystem-label" id="subsystem-label">Lesson Tracker</span>
+    </div>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Open menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="subsystem-nav" id="subsystem-nav">
+      <!-- v1.0.5: subsystem buttons here are no longer hardcoded - app.js
+           builds them at runtime from GET /api/settings/subsystems (see
+           loadAndRenderNav() in app.js, lib/subsystems-registry.js on the
+           server). This is what lets a subsystem be hidden from the menu,
+           and lets future subsystems (there will eventually be 30+) show
+           up automatically without editing this file. -->
+      <div class="nav-links" id="nav-links"></div>
+      <button class="nav-link" id="nav-settings-btn" title="Settings">⚙ Settings</button>
+      <button class="icon-btn nav-lan-btn" id="server-info-btn" title="Show LAN address">LAN address</button>
+    </nav>
+  </header>
+  <div class="nav-backdrop" id="nav-backdrop"></div>
+  <div class="crumbs" id="crumbs"></div>
+  <main id="view"></main>
+  <div class="toast" id="toast"></div>
+  <div class="build-footer" id="build-footer"></div>
+
+  <script src="/js/airdrop.js"></script>
+  <script src="/js/schedule.js"></script>
+  <script src="/js/timers.js"></script>
+  <script src="/js/settings.js"></script>
+  <script src="/js/ytdownload.js"></script>
+  <script src="/js/study.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

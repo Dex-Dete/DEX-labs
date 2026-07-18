@@ -1,0 +1,224 @@
+/* Landing Page (v1.1.3) - intentionally its own look, not DEX Labs'
+   teal/style.css palette, so it reads as a distinct "front door" page
+   rather than looking like part of the app it's pointing at. */
+:root {
+  --lp-bg: #14161f;
+  --lp-card: #1e2130;
+  --lp-card-hover: #262a3d;
+  --lp-ink: #eef0f6;
+  --lp-ink-soft: #9ba1b5;
+  --lp-accent: #f2a541;
+  --lp-accent-dark: #c9821f;
+  --lp-online: #3ec988;
+  --lp-offline: #6b7183;
+  --lp-border: rgba(255, 255, 255, 0.08);
+  --lp-radius: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--lp-bg);
+  color: var(--lp-ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+}
+
+.wrap {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 20px 60px;
+}
+
+.head h1 {
+  margin: 0 0 8px;
+  font-size: 1.6rem;
+}
+.sub {
+  color: var(--lp-ink-soft);
+  line-height: 1.5;
+  margin: 0 0 28px;
+  max-width: 640px;
+}
+
+.sites-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 260px));
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 36px;
+}
+@media (min-width: 640px) {
+  .sites-grid { justify-content: start; }
+}
+
+.empty-state {
+  color: var(--lp-ink-soft);
+  padding: 20px;
+  text-align: center;
+  grid-column: 1 / -1;
+}
+
+.site-card {
+  background: var(--lp-card);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.site-card:hover { background: var(--lp-card-hover); }
+
+.site-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.site-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  word-break: break-word;
+}
+.site-port {
+  color: var(--lp-ink-soft);
+  font-size: 0.85rem;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+}
+.site-note {
+  color: var(--lp-ink-soft);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+/* Deliberately a plain, static colored dot - NO CSS animation here.
+   v1.1.2 fixed a bug where a continuously-animated element got torn
+   down and recreated every poll, restarting the animation each time;
+   this page's site list re-renders on every poll the same way, so
+   giving the status dot a "pulse" animation would silently reintroduce
+   that exact class of bug. A static color communicates online/offline
+   fine without needing one. */
+.site-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  margin-top: 4px;
+}
+.site-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--lp-offline);
+  flex-shrink: 0;
+}
+.site-status.online .site-status-dot { background: var(--lp-online); }
+.site-status.online .site-status-label { color: var(--lp-online); }
+.site-status.offline .site-status-label { color: var(--lp-ink-soft); }
+
+.site-open-link {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--lp-accent);
+  color: #17181f;
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-decoration: none;
+  text-align: center;
+}
+.site-open-link:hover { background: var(--lp-accent-dark); }
+
+.site-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.site-card-actions button {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--lp-border);
+  background: transparent;
+  color: var(--lp-ink-soft);
+  cursor: pointer;
+  font-family: inherit;
+}
+.site-card-actions button:hover { background: rgba(255, 255, 255, 0.06); color: var(--lp-ink); }
+.site-card-actions .danger:hover { color: #e26565; border-color: rgba(226, 101, 101, 0.4); }
+
+.panel {
+  background: var(--lp-card);
+  border: 1px solid var(--lp-border);
+  border-radius: var(--lp-radius);
+  padding: 20px;
+  max-width: 520px;
+}
+.panel h2 {
+  margin: 0 0 14px;
+  font-size: 1.05rem;
+}
+
+.add-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.add-row input {
+  flex: 1;
+  min-width: 120px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  border: 1.5px solid var(--lp-border);
+  background: #14161f;
+  color: var(--lp-ink);
+  font-family: inherit;
+  font-size: 0.92rem;
+}
+.add-row input::placeholder { color: #5c6178; }
+.add-row input:focus { outline: none; border-color: var(--lp-accent); }
+
+.btn {
+  padding: 10px 18px;
+  border-radius: 7px;
+  border: none;
+  background: var(--lp-accent);
+  color: #17181f;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+.btn:hover { background: var(--lp-accent-dark); }
+.btn.secondary {
+  background: transparent;
+  border: 1.5px solid var(--lp-border);
+  color: var(--lp-ink-soft);
+}
+.btn.secondary:hover { color: var(--lp-ink); }
+
+.add-actions { align-items: center; }
+
+#add-error .form-error {
+  color: #e26565;
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.foot {
+  margin-top: 40px;
+  color: var(--lp-ink-soft);
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+@media (max-width: 480px) {
+  .add-row { flex-direction: column; }
+  .add-row input { min-width: 0; }
+}

@@ -1,0 +1,172 @@
+/* YouTube Downloader - own stylesheet, own accent color, same isolation
+   pattern as airdrop.css / schedule.css / timers.css. Reuses the shared
+   .panel/.btn/.progress-wrap/.empty-state/.file-item building blocks
+   from style.css rather than reinventing them. */
+:root {
+  --ytdl-accent: #6a3f8f;
+  --ytdl-accent-soft: #ede7f2;
+}
+
+.ytdl-page-sub {
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  margin: -6px 0 16px;
+}
+
+/* ---- setup banner (shown only while yt-dlp/ffmpeg are being fetched) ---- */
+.ytdl-setup-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--ytdl-accent-soft);
+  border: 1px solid var(--ytdl-accent);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+.ytdl-setup-banner.error {
+  background: #f6e6e6;
+  border-color: var(--pen);
+  color: var(--pen-dark);
+}
+.ytdl-setup-banner .spinner {
+  flex-shrink: 0;
+}
+.ytdl-setup-banner .msg { flex: 1; }
+.ytdl-setup-banner .btn { flex-shrink: 0; }
+
+/* ---- URL entry ---- */
+.ytdl-url-row {
+  display: flex;
+  gap: 10px;
+}
+.ytdl-url-row input[type="url"] { flex: 1; }
+
+/* ---- video info card ---- */
+.ytdl-video-card {
+  display: flex;
+  gap: 14px;
+  margin-top: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--margin);
+}
+.ytdl-video-card img {
+  width: 160px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--paper-line);
+  flex-shrink: 0;
+}
+.ytdl-video-card .info { min-width: 0; }
+.ytdl-video-card .title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.ytdl-video-card .meta { color: var(--ink-soft); font-size: 0.85rem; }
+
+/* ---- quality options (selectable, not just informational tiles) ---- */
+.ytdl-quality-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 16px 0;
+}
+.ytdl-quality-tile {
+  border: 2px solid var(--margin);
+  border-radius: var(--radius);
+  padding: 12px;
+  cursor: pointer;
+  text-align: left;
+  background: var(--card);
+  transition: border-color 0.15s, background 0.15s;
+}
+.ytdl-quality-tile:hover { border-color: var(--ytdl-accent); }
+.ytdl-quality-tile.selected {
+  border-color: var(--ytdl-accent);
+  background: var(--ytdl-accent-soft);
+}
+.ytdl-quality-tile .label { font-weight: 600; font-size: 0.95rem; }
+.ytdl-quality-tile .res { color: var(--ink-soft); font-size: 0.85rem; margin-top: 2px; }
+.ytdl-quality-tile .size { color: var(--ytdl-accent); font-size: 0.85rem; font-weight: 600; margin-top: 6px; }
+.ytdl-quality-tile .merge-note { color: var(--ink-soft); font-size: 0.75rem; margin-top: 2px; }
+
+/* ---- download progress ---- */
+.ytdl-progress-block { margin-top: 16px; }
+.ytdl-progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+.ytdl-progress-wrap .progress-bar { background: var(--ytdl-accent); }
+.ytdl-phase-label { font-weight: 600; margin-bottom: 4px; }
+
+/* ---- recent downloads list ---- */
+.ytdl-history-wrap { margin-top: 28px; }
+.ytdl-history-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.ytdl-history-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(31, 44, 76, 0.06);
+  border-left: 4px solid var(--ytdl-accent);
+}
+.ytdl-history-item img {
+  width: 64px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--paper-line);
+  flex-shrink: 0;
+}
+.ytdl-history-item .info { flex: 1; min-width: 0; }
+.ytdl-history-item .name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ytdl-history-item .meta { color: var(--ink-soft); font-size: 0.78rem; margin-top: 2px; }
+.ytdl-history-item .status-error { color: var(--pen-dark); font-size: 0.8rem; margin-top: 2px; }
+.ytdl-history-item a.dl {
+  text-decoration: none;
+  color: #fff;
+  background: var(--ytdl-accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 7px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.ytdl-history-item a.dl:hover { opacity: 0.9; }
+.ytdl-history-item .del-btn {
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 6px;
+}
+.ytdl-history-item .del-btn:hover { color: var(--pen); }
+
+@media (max-width: 600px) {
+  .ytdl-video-card { flex-direction: column; }
+  .ytdl-video-card img { width: 100%; height: auto; aspect-ratio: 16/9; }
+}

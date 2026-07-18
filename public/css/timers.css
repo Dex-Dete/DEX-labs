@@ -1,0 +1,239 @@
+/* ---- Clock (Timer / Alarm / Stopwatch) --------------------------------
+   Own accent (a deep teal, "focus/clock" feel). Reuses base tokens from
+   style.css for consistency, own prefixed classes throughout.
+------------------------------------------------------------------------*/
+:root {
+  --timers-accent: #1f7a6c;
+  --timers-accent-dark: #145c50;
+  --timers-accent-soft: rgba(31, 122, 108, 0.12);
+}
+
+.timers-page-sub {
+  color: var(--ink-soft);
+  margin: -12px 0 18px;
+  font-size: 0.95rem;
+}
+
+/* ---- Clock tab menu (v1.1.1) -------------------------------------
+   The 3 menus inside the single "Clock" subsystem: Timer / Alarm /
+   Stopwatch. A simple segmented control, own accent, no dependency on
+   anything else in the page.
+--------------------------------------------------------------------*/
+.clock-tabs {
+  display: flex;
+  gap: 6px;
+  margin: -6px 0 18px;
+  background: var(--timers-accent-soft);
+  padding: 5px;
+  border-radius: 10px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.clock-tab-btn {
+  border: none;
+  background: transparent;
+  color: var(--timers-accent-dark);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 9px 18px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.clock-tab-btn:hover { background: rgba(31, 122, 108, 0.18); }
+.clock-tab-btn.active {
+  background: var(--timers-accent);
+  color: #fff;
+}
+
+.timers-form-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.timers-form-row input[type="text"] {
+  flex: 1;
+  min-width: 160px;
+  padding: 11px 14px;
+  border-radius: 7px;
+  border: 1.5px solid var(--margin);
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+.timers-form-row select {
+  padding: 10px 12px;
+  border-radius: 7px;
+  border: 1.5px solid var(--margin);
+  font-family: inherit;
+  background: var(--card);
+}
+.timer-duration-fields { display: flex; gap: 6px; }
+.timer-duration-fields input {
+  width: 52px;
+  padding: 10px 8px;
+  border-radius: 7px;
+  border: 1.5px solid var(--margin);
+  text-align: center;
+  font-family: inherit;
+}
+.timer-alarm-time {
+  padding: 10px 12px;
+  border-radius: 7px;
+  border: 1.5px solid var(--margin);
+  font-family: inherit;
+}
+
+.timers-grid {
+  display: grid;
+  /* v1.1.2: was auto-fill + 1fr, which always lays out as many empty
+     tracks as fit the row - so a single card sat pinned to the left of
+     a full-width invisible row instead of looking centered. auto-fit
+     collapses unused tracks to 0 instead of keeping them around, and
+     capping the track size (160px-200px instead of 160px-1fr) stops
+     that lone remaining track from stretching to fill the whole row;
+     justify-content: center then centers the resulting track set as a
+     whole. Net effect: 1 card = centered, many cards = same wrapping
+     grid as before. */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 200px));
+  justify-content: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+.timer-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  border: 1px solid rgba(31, 44, 76, 0.06);
+}
+.timer-card.ringing {
+  border-color: var(--pen);
+  animation: timer-pulse 1s infinite;
+}
+@keyframes timer-pulse {
+  0%, 100% { box-shadow: var(--shadow); }
+  50% { box-shadow: 0 0 0 6px rgba(192, 57, 43, 0.15); }
+}
+
+.timer-ring { width: 100px; height: 100px; }
+.timer-ring-track {
+  fill: none;
+  stroke: var(--timers-accent-soft);
+  stroke-width: 8;
+}
+.timer-ring-progress {
+  fill: none;
+  stroke: var(--timers-accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 0.9s linear;
+}
+.timer-ring-progress.ringing { stroke: var(--pen); }
+
+.timer-card-inner {
+  position: absolute;
+  top: 16px;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.timer-remaining {
+  font-family: Georgia, serif;
+  font-weight: bold;
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
+.timer-label {
+  margin-top: 10px;
+  font-weight: 600;
+  text-align: center;
+  font-size: 0.92rem;
+}
+.timer-kind {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin-top: 2px;
+}
+.timer-cancel-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+.timer-dismiss-btn {
+  margin-top: 10px;
+  padding: 7px 16px;
+  font-size: 0.85rem;
+}
+
+/* ---- Stopwatch (v1.1.1) -------------------------------------------
+   Reuses the exact same ring/card look as Timer & Alarm (that's what
+   was asked for) - the ring just spins continuously instead of
+   counting a fixed countdown down to zero, since a stopwatch has no
+   known end point.
+--------------------------------------------------------------------*/
+.timer-ring-progress.sw-spin {
+  animation: sw-ring-spin 1.6s linear infinite;
+}
+.timer-ring-progress.sw-paused { animation-play-state: paused; }
+@keyframes sw-ring-spin {
+  from { transform: rotate(-90deg); }
+  to { transform: rotate(270deg); }
+}
+
+.timer-card.sw-running {
+  border-color: var(--timers-accent);
+  animation: sw-card-pulse 1.8s infinite;
+}
+@keyframes sw-card-pulse {
+  0%, 100% { box-shadow: var(--shadow); }
+  50% { box-shadow: 0 0 0 6px var(--timers-accent-soft); }
+}
+
+.sw-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.sw-actions .btn {
+  padding: 6px 12px;
+  font-size: 0.82rem;
+}
+
+.sw-laps {
+  margin-top: 10px;
+  width: 100%;
+  max-height: 96px;
+  overflow-y: auto;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  border-top: 1px dashed var(--margin);
+  padding-top: 6px;
+}
+.sw-lap-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 2px;
+}
+.sw-lap-row span:first-child { opacity: 0.7; }
+
+@media (max-width: 480px) {
+  .timers-form-row { gap: 8px; }
+  .timers-form-row input[type="text"] { min-width: 0; flex-basis: 100%; }
+  .timer-duration-fields { flex: 1; }
+  .timer-duration-fields input { flex: 1; width: auto; min-width: 0; }
+}

@@ -1,0 +1,19 @@
+# Personal data and generated files
+data/
+landing-page/data/
+uploads/
+uploads-airdrop/
+downloads-youtube/
+backups/
+globalnetwork-tmp/
+node_modules/
+logs.txt
+*.tmp
+.env
+.env.*
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
