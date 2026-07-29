@@ -135,12 +135,11 @@ router.post('/rec/active/finish', async (req, res) => {
   } catch (e) { handleError(res, e); }
 });
 
-// ---------------- Manual day logs ----------------
+// ---------------- Manual Rec entry (v1.3.6) ----------------
 
-router.put('/daylog/:date', async (req, res) => {
+router.post('/rec/manual', async (req, res) => {
   try {
-    await store.setDayLog(req.params.date, req.body.status === undefined ? null : req.body.status);
-    res.json({ ok: true });
+    res.status(201).json(await store.addManualRecSession(req.body));
   } catch (e) { handleError(res, e); }
 });
 

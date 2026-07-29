@@ -8,9 +8,8 @@
 //   Stats    - hours studied per subject (pie + bar), total sessions,
 //              and how many days this year were Studied / Slept / Did
 //              nothing.
-//   Calendar - a GitHub-style "every day of the year, lit up by how
-//              much you studied" heatmap, with manual Slept/Did-nothing
-//              marking for days with no session.
+//   Calendar - a "every day of the year" heatmap, each day colored by
+//              the subject you spent the most time on that day.
 //
 // The active session is server-authoritative (lib/study-store.js) -
 // this page polls it every second and derives everything it shows
@@ -484,6 +483,38 @@
     }
   }
 
+  function renderManualRecForm(subjects) {
+    const today = localTodayStr();
+    return `
+      <div class="panel" style="margin-top:18px">
+        <h3>Manual entry</h3>
+        <div class="study-page-sub" style="margin-top:-8px">Add time for a recording you forgot to track.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:0.82rem;font-weight:600;color:var(--ink-soft)">
+            Subject
+            <select id="rec-manual-subject" style="padding:9px 10px;border-radius:7px;border:1.5px solid var(--margin);min-width:140px">
+              ${subjects.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+            </select>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:0.82rem;font-weight:600;color:var(--ink-soft)">
+            Date
+            <input type="date" id="rec-manual-date" value="${today}" style="padding:9px 10px;border-radius:7px;border:1.5px solid var(--margin)" />
+          </label>
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:0.82rem;font-weight:600;color:var(--ink-soft)">
+            Hours
+            <input type="number" id="rec-manual-hours" min="0" max="24" value="0" style="width:60px;padding:9px 10px;border-radius:7px;border:1.5px solid var(--margin)" />
+          </label>
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:0.82rem;font-weight:600;color:var(--ink-soft)">
+            Minutes
+            <input type="number" id="rec-manual-minutes" min="1" max="59" value="30" style="width:60px;padding:9px 10px;border-radius:7px;border:1.5px solid var(--margin)" />
+          </label>
+          <button class="btn" id="rec-manual-save-btn">Save</button>
+        </div>
+        <div id="rec-manual-error" style="margin-top:8px"></div>
+      </div>
+    `;
+  }
+
   async function renderRecSubjectPicker() {
     const body = document.getElementById('study-tab-body');
     let subjects;
@@ -497,6 +528,7 @@
       <div class="study-rec-scope">
         <div class="study-page-sub">Pick a subject to start timing a recording. Subjects (and their colors) are managed from the Study tab.</div>
         <div class="study-subjects-grid" id="rec-subjects-grid"></div>
+        ${subjects.length > 0 ? renderManualRecForm(subjects) : ''}
       </div>
     `;
     const grid = document.getElementById('rec-subjects-grid');
@@ -520,6 +552,23 @@
       });
       grid.appendChild(card);
     });
+    const saveBtn = document.getElementById('rec-manual-save-btn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const errBox = document.getElementById('rec-manual-error');
+        errBox.innerHTML = '';
+        const subjectId = document.getElementById('rec-manual-subject').value;
+        const date = document.getElementById('rec-manual-date').value;
+        const hours = parseInt(document.getElementById('rec-manual-hours').value, 10) || 0;
+        const minutes = parseInt(document.getElementById('rec-manual-minutes').value, 10) || 0;
+        const durationMs = (hours * 60 + minutes) * 60000;
+        if (durationMs < 60000) { errBox.innerHTML = '<div class="add-error">Minimum duration is 1 minute.</div>'; return; }
+        try {
+          await api('/api/study/rec/manual', { method: 'POST', body: { subjectId, date, durationMs } });
+          showToast('Rec entry saved');
+        } catch (e) { showToast(e.message); }
+      });
+    }
   }
 
   function renderRecFocusView(active) {
@@ -763,7 +812,7 @@
         <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(stats.overallMs)}</div><div class="study-stat-tile-label">Total (Study + Rec)</div></div>
         <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(stats.studyOverallMs)}</div><div class="study-stat-tile-label">📖 Study</div></div>
         <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(stats.recOverallMs)}</div><div class="study-stat-tile-label">🎥 Rec</div></div>
-        <div class="study-stat-tile"><div class="study-stat-tile-value">${stats.dayCounts.studied}</div><div class="study-stat-tile-label">Days studied</div></div>
+        <div class="study-stat-tile"><div class="study-stat-tile-value">${stats.studiedDays}</div><div class="study-stat-tile-label">Days studied</div></div>
       </div>
       <div class="study-stats-cols">
         <div class="study-stats-col">
@@ -773,9 +822,7 @@
         <div class="study-stats-col">
           <h3>Days this year</h3>
           <div class="study-daycounts">
-            <div class="study-daycount"><span class="study-daycount-dot" style="background:var(--study-accent-dark)"></span>Studied: ${stats.dayCounts.studied}</div>
-            <div class="study-daycount"><span class="study-daycount-dot" style="background:var(--study-slept)"></span>Slept: ${stats.dayCounts.slept}</div>
-            <div class="study-daycount"><span class="study-daycount-dot" style="background:var(--study-nothing)"></span>Did nothing: ${stats.dayCounts.nothing}</div>
+            <div class="study-daycount"><span class="study-daycount-dot" style="background:var(--study-accent-dark)"></span>Studied: ${stats.studiedDays}</div>
           </div>
         </div>
       </div>
@@ -834,7 +881,7 @@
         <span class="study-year-label">${calendarYear}</span>
         <button id="study-cal-next-year">▶</button>
       </div>
-      <div class="study-page-sub">Click any past day with no study session to mark it as slept or as nothing. Days you actually studied are colored automatically.</div>
+      <div class="study-page-sub">Each day is colored by the subject you spent the most time on. Click a day to see its breakdown.</div>
       <div class="study-heatmap-scroll">
         <div class="study-heatmap-months">${monthLabels.map((l) => `<div>${l}</div>`).join('')}</div>
         <div class="study-heatmap-body">
@@ -843,12 +890,13 @@
             ${cells.map((entry) => {
               if (!entry) return `<div></div>`;
               const isFuture = entry.date > todayStr;
+              const minutes = entry.minutes;
               const title = isFuture ? entry.date
-                : entry.status === 'studied' ? `${entry.date}: studied ${entry.minutes}m`
-                : entry.status === 'slept' ? `${entry.date}: slept`
-                : entry.status === 'nothing' ? `${entry.date}: did nothing`
-                : `${entry.date}: not logged`;
-              return `<div class="study-heat-cell${isFuture ? ' future' : ''}" data-date="${entry.date}" data-level="${entry.level}" ${entry.status ? `data-status="${entry.status}"` : ''} title="${escapeHtml(title)}"></div>`;
+                : minutes > 0 ? `${entry.date}: studied ${minutes}m`
+                : `${entry.date}: no activity`;
+              const cellStyle = entry.dominantColor ? `style="background:${entry.dominantColor}"` : '';
+              const levelAttr = !entry.dominantColor ? `data-level="${entry.level}"` : '';
+              return `<div class="study-heat-cell${isFuture ? ' future' : ''}" data-date="${entry.date}" ${levelAttr} ${cellStyle} title="${escapeHtml(title)}"></div>`;
             }).join('')}
           </div>
         </div>
@@ -861,8 +909,6 @@
           <span class="study-heat-cell" data-level="3"></span>
           <span class="study-heat-cell" data-level="4"></span>
         More</div>
-        <div class="study-heatmap-legend-group"><span class="study-heat-cell" data-status="slept"></span>Slept</div>
-        <div class="study-heatmap-legend-group"><span class="study-heat-cell" data-status="nothing"></span>Did nothing</div>
       </div>
       <div id="study-daylog-panel"></div>
     `;
@@ -882,8 +928,7 @@
   // (same tiles + pie + Study/Rec split bars as the Stats tab's Today
   // view, via buildDayStatsHtml()/GET /api/study/stats/day/:date) right
   // here in the Calendar tab, not just a plain "you studied N minutes"
-  // line - plus, for days with no session, the existing slept/did
-  // nothing marking controls underneath.
+  // line.
   async function renderDaylogPanel() {
     const panel = document.getElementById('study-daylog-panel');
     if (!selectedDay) { panel.innerHTML = ''; return; }
@@ -900,34 +945,12 @@
     // flight - don't clobber whatever's now showing with a stale reply.
     if (!selectedDay || selectedDay.date !== date) return;
 
-    let markSection;
-    if (day.status === 'studied') {
-      markSection = `<div class="study-page-sub" style="margin:14px 0 0">You studied on this day - that's automatic and can't be overwritten.</div>`;
-    } else {
-      markSection = `
-        <div class="study-daylog-panel-buttons" style="margin-top:14px">
-          <button class="btn secondary" data-status="slept">😴 Mark as slept</button>
-          <button class="btn secondary" data-status="nothing">🚫 Mark as did nothing</button>
-          ${day.status ? `<button class="btn secondary" data-status="">Clear mark</button>` : ''}
-        </div>
-      `;
-    }
     panel.innerHTML = `
       <div class="study-daylog-panel">
         <div class="study-daylog-panel-title">${date}</div>
         ${buildDayStatsHtml(day, `on ${date}`)}
-        ${markSection}
       </div>
     `;
-    panel.querySelectorAll('button[data-status]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        try {
-          await api(`/api/study/daylog/${date}`, { method: 'PUT', body: { status: btn.dataset.status || null } });
-          selectedDay = null;
-          renderCalendarTab();
-        } catch (e) { showToast(e.message); }
-      });
-    });
   }
 
   // ---------------- Entry point ----------------

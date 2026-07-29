@@ -8,8 +8,6 @@
   --study-accent: #4b3f8f;
   --study-accent-dark: #352b6b;
   --study-accent-soft: rgba(75, 63, 143, 0.12);
-  --study-slept: #4a6fa5;
-  --study-nothing: #9aa2b1;
   /* v1.3.5: the heatmap's 4 intensity levels are a fixed decorative
      scale (get progressively deeper purple, same in both themes) - kept
      separate from --study-accent-dark, which is a *text*-contrast token
@@ -445,8 +443,7 @@ html[data-theme="dark"] {
 .study-heat-cell[data-level="2"] { background: #9a8dd1; }
 .study-heat-cell[data-level="3"] { background: #6c5bb5; }
 .study-heat-cell[data-level="4"] { background: var(--study-heat-4); }
-.study-heat-cell[data-status="slept"] { background: var(--study-slept); }
-.study-heat-cell[data-status="nothing"] { background: var(--study-nothing); }
+
 
 .study-heatmap-legend {
   display: flex;
@@ -467,7 +464,6 @@ html[data-theme="dark"] {
   padding: 14px 16px;
 }
 .study-daylog-panel-title { font-weight: bold; margin-bottom: 8px; }
-.study-daylog-panel-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
 
 @media (max-width: 640px) {
   .study-ring-wrap { width: 180px; height: 180px; }
