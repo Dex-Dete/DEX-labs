@@ -619,6 +619,24 @@ landing-page/                  the Landing Page - own Node process, own
   back to the user - they already have it. If something is genuinely
   ambiguous, ask; otherwise just ship the diff.
 
+## v1.3.6 (for future sessions)
+
+Full writeup in CHANGES.md's v1.3.6 section. Short version:
+
+1. **Rec manual entry** - `POST /api/study/rec/manual` in `routes/study.js`,
+   backed by `addManualRecSession()` in `lib/study-store.js`. The frontend
+   shows a form with subject picker, date, hours/minutes in the Rec tab.
+2. **Slept/Did nothing fully removed** - `setDayLog()`, the
+   `PUT /api/study/daylog/:date` route, and all UI buttons/legend/tiles for
+   marking or counting slept/nothing days are gone. The `dayLogs` JSON field
+   is simply ignored now.
+3. **Heatmap colors by dominant subject** - `getStats()` in
+   `lib/study-store.js` now computes per-subject-per-day totals and includes
+   `dominantSubjectId`/`dominantColor` on each heatmap entry. The Calendar tab
+   renders cells with inline `background` styling from the dominant subject's
+   color. Level-based (intensity) coloring only applies to days with no
+   activity (level 0).
+
 ## v1.3.5 (for future sessions)
 
 Full writeup in CHANGES.md's v1.3.5 section. Short version + rules for

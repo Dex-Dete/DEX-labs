@@ -1,3 +1,27 @@
+# DEX Labs v1.3.6 - Changes
+
+Three user-requested changes to the Study subsystem:
+
+**1. Rec tab now has a manual time entry form.** Below the subject cards when no
+active Rec session is running, there's a panel with subject picker, date, and
+hours/minutes inputs — lets you add time for a recording you forgot to track.
+Backed by `POST /api/study/rec/manual` → `lib/study-store.js`'s new
+`addManualRecSession()`.
+
+**2. Removed "Slept" and "Did nothing" entirely.** These manual day-logging
+features (`lib/study-store.js`'s `setDayLog()`, the `PUT /daylog/:date` route,
+the "Mark as slept"/"Mark as did nothing" buttons in the Calendar tab, and the
+Slept/Did-nothing counts in the Stats tab) are all gone. The Calendar tab page
+subtitle and legend, plus the Stats "Days this year" tile, were updated
+accordingly. The `dayLogs` field in data files is now ignored if present.
+
+**3. Calendar heatmap colors each day by the dominant subject.** Instead of a
+fixed 5-level intensity scale (which only showed *how much* you studied, not
+*what*), each day's cell now takes its color from whichever subject (Study or
+Rec combined) you spent the most time on that day. Days with no activity stay
+at the default empty color. Computing the per-subject-per-day totals from both
+`sessions` and `recSessions` happens server-side in `getStats()`.
+
 # DEX Labs v1.3.5 - Changes
 
 Four things, all user-requested:
