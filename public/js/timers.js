@@ -41,6 +41,37 @@
     return data;
   }
 
+  // ---------------- v1.3.0: Events (shared with the load-once banner in
+  // app.js and Standby Mode's events section in sbm.js - all three read
+  // from the same GET /api/events/upcoming so there's one source of
+  // truth, and all three format countdowns the same way via this). ----
+  function daysUntil(targetDate) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const target = new Date(targetDate + 'T00:00:00');
+    return Math.round((target - today) / 86400000);
+  }
+
+  function formatRemaining(days) {
+    if (days < 0) return 'Passed';
+    if (days === 0) return 'Today';
+    if (days === 1) return '1 day';
+    if (days < 14) return `${days} days`;
+    if (days < 60) {
+      const w = Math.floor(days / 7);
+      const d = days % 7;
+      return `${w} week${w !== 1 ? 's' : ''}${d ? ` ${d} day${d !== 1 ? 's' : ''}` : ''}`;
+    }
+    const months = Math.floor(days / 30.44);
+    const remDays = Math.max(0, Math.round(days - months * 30.44));
+    return `${months} month${months !== 1 ? 's' : ''}${remDays ? ` ${remDays} day${remDays !== 1 ? 's' : ''}` : ''}`;
+  }
+
+  window.DexEvents = {
+    formatRemaining,
+    daysUntil,
+    fetchUpcoming: () => api('/api/events/upcoming').then((d) => d.events || []),
+  };
+
   function fmtRemaining(ms) {
     if (ms <= 0) return "0:00";
     const totalSec = Math.ceil(ms / 1000);
@@ -174,6 +205,7 @@
     { id: 'timer', label: '⏱ Timer' },
     { id: 'alarm', label: '🔔 Alarm' },
     { id: 'stopwatch', label: '⏲ Stopwatch' },
+    { id: 'events', label: '📌 Events' },
   ];
 
   function renderShell(tab) {
@@ -505,6 +537,75 @@
     pollTimer = setInterval(swPoll, 1000);
   }
 
+  // ---------------- Events tab (v1.3.0) ----------------
+
+  async function renderEventsTab() {
+    const body = document.getElementById('clock-tab-body');
+    body.innerHTML = `
+      <div class="timers-page-sub">Track a countdown to an exam or deadline. Shown here, and on the load-once-per-day banner and in Standby Mode.</div>
+      <form id="event-add-form" class="event-add-form">
+        <input type="text" id="event-name-input" placeholder="Event name (e.g. G.C.E. O/L Exam)" maxlength="120" required />
+        <input type="date" id="event-date-input" required />
+        <button type="submit" class="btn">Add event</button>
+      </form>
+      <div id="events-list" class="events-list"><div class="events-empty">Loading...</div></div>
+    `;
+
+    document.getElementById('event-add-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('event-name-input').value.trim();
+      const targetDate = document.getElementById('event-date-input').value;
+      if (!name || !targetDate) return;
+      try {
+        await api('/api/events', { method: 'POST', body: { name, targetDate } });
+        document.getElementById('event-add-form').reset();
+        loadEvents();
+      } catch (err) { showToast(err.message); }
+    });
+
+    loadEvents();
+  }
+
+  async function loadEvents() {
+    const list = document.getElementById('events-list');
+    if (!list) return;
+    let all;
+    try {
+      all = (await api('/api/events')).events;
+    } catch (err) {
+      list.innerHTML = `<div class="events-empty">Couldn't load events.</div>`;
+      return;
+    }
+    if (!all.length) {
+      list.innerHTML = `<div class="events-empty">No events yet - add one above.</div>`;
+      return;
+    }
+    list.innerHTML = all.map((ev) => {
+      const days = daysUntil(ev.targetDate);
+      const passed = days < 0;
+      const dateLabel = new Date(ev.targetDate + 'T00:00:00').toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      return `
+        <div class="event-card${passed ? ' passed' : ''}" data-id="${ev.id}">
+          <div class="event-card-main">
+            <div class="event-name">${escapeHtml(ev.name)}</div>
+            <div class="event-date">${dateLabel}</div>
+          </div>
+          <div class="event-remaining">${passed ? 'Passed' : formatRemaining(days)}</div>
+          <button class="event-delete-btn" data-id="${ev.id}" title="Delete event" aria-label="Delete event">✕</button>
+        </div>
+      `;
+    }).join('');
+
+    list.querySelectorAll('.event-delete-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        try {
+          await api(`/api/events/${btn.dataset.id}`, { method: 'DELETE' });
+          loadEvents();
+        } catch (err) { showToast(err.message); }
+      });
+    });
+  }
+
   // ---------------- Entry point ----------------
 
   function render(subview) {
@@ -517,7 +618,12 @@
     if (tab === 'timer') return renderTimerTab('timer');
     if (tab === 'alarm') return renderTimerTab('alarm');
     if (tab === 'stopwatch') return renderStopwatchTab();
+    if (tab === 'events') return renderEventsTab();
   }
 
-  window.Timers = { render };
+  function cleanup() {
+    if (pollTimer) clearInterval(pollTimer);
+  }
+
+  window.Timers = { render, cleanup };
 })();

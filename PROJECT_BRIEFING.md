@@ -15,8 +15,8 @@ framework, no bundler - everything is directly editable and directly
 served).
 
 The site is called **DEX Labs**. It is explicitly meant to grow into the
-user's general personal website over time. As of v1.1.5 it has six
-independent **subsystems** (see "v1.1.5" near the end of this file for
+user's general personal website over time. As of v1.3.0 it has seven
+independent **subsystems** (see "v1.3.0" near the end of this file for
 the newest one and how it was integrated):
 
 1. **Lesson Tracker** — the original feature. Lets the user (a student)
@@ -51,21 +51,43 @@ the newest one and how it was integrated):
    start/pause/resume/lap/reset, own store (`lib/stopwatch-store.js`,
    `data/stopwatch.json`) - server-backed for correctness across
    reloads/restarts but needs no tick loop or beep (pure elapsed-time
-   math off stored timestamps, no alerting). This is the other piece
-   (besides the tray app) that could not be tested end-to-end in this
-   environment - no Windows/speakers available. The tick loop, expiry
-   transition, dismiss/cancel flow, and (v1.1.1) the full stopwatch
-   CRUD/pause-math ARE thoroughly tested (via real HTTP requests /
-   direct store calls against the running server); only the actual
-   audible beep on real hardware (including the new Bluetooth fix) is
-   unverified.
+   math off stored timestamps, no alerting). v1.3.0 added a fourth menu,
+   **Events** - name + target-date countdowns, own store
+   (`lib/events-store.js`, `data/events.json`) and router
+   (`routes/events.js`), also feeding Standby Mode's events section and
+   a load-once-per-day-per-device banner - see "v1.3.0" near the end of
+   this file. This is the other piece (besides the tray app) that could
+   not be tested end-to-end in this environment - no Windows/speakers
+   available. The tick loop, expiry transition, dismiss/cancel flow, and
+   (v1.1.1) the full stopwatch CRUD/pause-math ARE thoroughly tested (via
+   real HTTP requests / direct store calls against the running server);
+   only the actual audible beep on real hardware (including the new
+   Bluetooth fix) is unverified.
 5. **YouTube Downloader** (v1.1.0) - drives `yt-dlp` as a child process
    to download videos/playlists to `downloads-youtube/`.
 6. **Study** (v1.1.5) - subjects the user is studying, a focus-session
    timer (Stopwatch or Pomodoro, server-authoritative like Clock's
    Stopwatch), per-subject hours stats (pie + bar charts), a
    Studied/Slept/Did-nothing day count, and a GitHub-style year
-   heatmap. See "v1.1.5" near the end of this file for full detail.
+   heatmap. v1.2.1 added a **Rec** tab alongside it - a plain manual
+   timer for time spent watching recorded lectures/videos, tracked as
+   genuinely separate data from Study sessions but sharing the same
+   subjects list; Stats now shows Study + Rec combined per subject. See
+   "v1.2.1" near the end of this file for full detail.
+7. **Standby Mode** (id `sbm`, v1.3.0) - a dashboard-style tab: a big
+   animated clock, a live mirror of whatever Study/Rec session is
+   currently running (reads/controls the *same* session via Study's own
+   endpoints, not a second timer), the Events list, host RAM/CPU stats,
+   an hourly rotating science fact, and (dark mode + "ultra graphics"
+   both on) a 30-legged follow-mouse creature. Registered as an ordinary
+   subsystem tab using the generic `window.DexSubsystems` fallback in
+   `app.js` - no special-casing needed. See "v1.3.0" near the end of
+   this file for full detail.
+
+Also as of v1.3.0, the whole site supports **global dark/light mode**
+(a header toggle, fixed-hours auto-switching, 24h manual-override hold)
+- see "v1.3.0" for how the shared CSS design tokens make this a
+site-wide, not per-subsystem, feature.
 
 All subsystems share one Express server/port (3002) and one top nav bar,
 but are otherwise fully separate in code: separate route files, separate
@@ -380,12 +402,14 @@ comparison, see `Test-VersionNewer` in `tray.ps1`).
   5-minute checker in v1.0.4** - see the updated "update system" section
   above. `update.bat` (command line) is still manual-only by design (no
   interactive submenu there).
-- The "no subsystem running" idle check (v1.0.4) only covers in-flight
-  uploads and active timers - it does NOT know whether someone has a
-  browser tab open on the site, or is mid-edit on the Daily Schedule
-  grid, since there's no session/activity tracking in this app. If the
-  user wants that broadened, it needs real session tracking added first,
-  not just a wider guess.
+- The "no subsystem running" idle check (v1.0.4, extended over time -
+  YouTube downloads in the v1.1.0 merge, Study sessions in v1.2.0) now
+  covers in-flight uploads, active timers, active YouTube downloads,
+  and an active Study session. It still does NOT know whether someone
+  has a browser tab open on the site, or is mid-edit on the Daily
+  Schedule grid, since there's no session/activity tracking in this
+  app. If the user wants that broadened, it needs real session tracking
+  added first, not just a wider guess.
 - AirDrop's 30GB cap check happens *after* multer has already streamed
   an oversized upload fully to disk (then deletes it) - wastes I/O on a
   rejected oversized upload but keeps the accounting simple/correct.
@@ -397,6 +421,23 @@ comparison, see `Test-VersionNewer` in `tray.ps1`).
   ad-hoc, but thorough (see "critical lessons" above for the methodology
   used). If this project grows much further, consider setting up a real
   test file structure.
+- v1.3.0's Windows auto-start work (`DEXLABS.bat`,
+  `register-admin-autostart.ps1`, the new tray menu item) is entirely
+  untested by Claude - no Windows/UAC/Scheduled Task environment
+  available in this sandbox. The user needs to test it by hand; see
+  `register-admin-autostart.ps1`'s header comment for exactly what to
+  check.
+- v1.3.0's follow-mouse creature is built (as a reusable
+  `makeCreature()` factory in `sbm.js`) but only actually wired up in
+  Standby Mode - extending it to other subsystems' content areas (each
+  needing its own defined "box" the creature can't escape) is real,
+  separate follow-up work, not something to assume was already done.
+- v1.3.0's science facts (`lib/facts-seed.json`) are a fixed seed list;
+  the ~70-day top-up trigger currently just resets every fact's "used"
+  flag rather than pulling in genuinely new facts (there's nowhere for
+  it to pull them from yet) - a future session wanting real fact
+  rotation over time needs to actually grow `facts-seed.json` or wire
+  up a real source.
 
 ## File layout
 
@@ -435,6 +476,22 @@ lib/study-store.js               Study's DB (v1.1.5) - data/study.json:
                             Pomodoro settings (saved forever, frozen
                             into each session at start time), manual
                             day-logs, and stats/heatmap aggregation
+                            (v1.2.0: subjects can carry a manual
+                            `color`, getStats() also returns `monthly`;
+                            v1.2.1: + recSessions/activeRecSession,
+                            genuinely separate fields from
+                            sessions/activeSession - see the v1.2.1
+                            section above - getStats() now returns
+                            studyMs/recMs per subject alongside a
+                            combined totalMs)
+lib/backup-store.js               Backup (v1.2.0) - data/backup.json:
+                            disk backup (mandatory folder path outside
+                            AppRoot) + Google Drive OAuth backup
+                            (optional, drive.file scope only). Not a
+                            subsystem - no registry entry, configured
+                            from the Settings page. backup.json itself
+                            is deliberately excluded from what either
+                            target backs up (see backableDataFiles())
 routes/lessons.js            subjects, categories (rename/add/delete),
                             lessons (add/watched-toggle/delete/details),
                             tutes (upload/download/delete)
@@ -449,7 +506,13 @@ routes/timers.js                 Clock's router (still one router/one
 routes/study.js                   Study's router (v1.1.5, /api/study) -
                             subjects, active-session control (start/
                             pause/resume/cancel/finish), settings,
-                            day-logs, stats
+                            day-logs, stats (v1.2.0: + subject color;
+                            v1.2.1: + /rec/active/... routes, same
+                            shape, for the new Rec timer)
+routes/backup.js                   Backup's router (v1.2.0, /api/backup) -
+                            disk path/browse/run-now, Drive credentials/
+                            auth-url/oauth-callback/run-now/disconnect,
+                            combined run-now (used by tray.ps1 pre-update)
 public/index.html              page shell, top nav (DEX Labs brand +
                             subsystem switcher + LAN address button)
 public/js/app.js                Lesson Tracker frontend (router, all
@@ -471,6 +534,22 @@ public/js/study.js                  Study frontend (v1.1.5) - Study/
                             SVG ring/pie/heatmap building, polls the
                             active session every 1s, browser-side
                             Web Audio beep on Pomodoro phase change
+                            (v1.2.0: per-subject color picker, monthly
+                            bar chart, quick-log banner removed;
+                            v1.2.1: + Rec tab reusing the same shared
+                            components under a `.study-rec-scope`
+                            color override, Stats' per-subject bar
+                            split into Study/Rec segments)
+public/js/settings.js               Settings page (v1.0.5) - AirDrop
+                            config + forced-first-run gate
+                            (`isSetupComplete()`, called generically by
+                            app.js's route()) + Subsystems show/hide.
+                            Not in the subsystems registry - reached via
+                            the nav's gear icon / #/settings directly.
+                            (v1.2.0: + Backup panel - disk path/browse/
+                            run-now, Google Drive credentials/connect/
+                            disconnect; isSetupComplete() now also
+                            requires a disk backup path)
 public/css/style.css              Lesson Tracker + shared/global styles
 public/css/airdrop.css             AirDrop-specific styles (own accent
                             color, prefixed .airdrop- classes)
@@ -481,7 +560,14 @@ public/css/timers.css                 Clock styles (own teal accent,
                             Alarm/Stopwatch, plus the .clock-tabs menu)
 public/css/study.css                   Study styles (v1.1.5, own indigo
                             accent, prefixed .study- classes, heatmap
-                            grid styling)
+                            grid styling - v1.2.0: fixed month-label
+                            grid pitch, + color swatch/monthly bar
+                            chart styles; v1.2.1: + --rec-accent vars
+                            and a `.study-rec-scope` override so the
+                            Rec tab reuses every shared .study-*
+                            component class in its own color, + the
+                            two-segment Study/Rec bar styles)
+public/css/settings.css              Settings page styles (v1.0.5)
 tray.ps1                     system tray app (Console/Update [Auto+
                             Manual+background-timer toggle submenu]/
                             Settings/Exit)
@@ -525,6 +611,337 @@ landing-page/                  the Landing Page - own Node process, own
 - Always deliver a complete fresh zip via `present_files`, with
   `package.json`'s version bumped and the zip contents at zip-root (no
   wrapping folder) if the update system needs to consume it.
+- **Explicit standing user instruction: only ship updates.** When
+  fixing a bug or adding a feature, make the change, bump the version,
+  add a section to this file and to `CHANGES.md`, and hand over the
+  updated zip. Don't re-send unrelated files, don't rewrite working
+  code "while you're in there," and don't restate the whole project
+  back to the user - they already have it. If something is genuinely
+  ambiguous, ask; otherwise just ship the diff.
+
+## v1.3.5 (for future sessions)
+
+Full writeup in CHANGES.md's v1.3.5 section. Short version + rules for
+future work:
+
+1. **Nav icon/name toggle moved to Settings > Navigation** - the
+   *display logic* still lives in `app.js` (`window.DexNavMode`,
+   applying a class on `<body>`), only the switch *control* moved. If
+   you need to read/set this from yet another page, use
+   `window.DexNavMode.get()`/`.set(mode)` - don't touch localStorage
+   directly from anywhere but `app.js`.
+2. **Header day/night button became a toggle switch** - checkbox-driven
+   now (`#theme-toggle-checkbox`), not a click-through button. Added a
+   reusable `.toggle-switch`/`.toggle-track`/`.toggle-thumb` component
+   in `style.css` (uses `currentColor` for the thumb so it adapts to
+   whatever context it's dropped into) - **reuse this for any future
+   on/off switch in the project instead of writing another one from
+   scratch.**
+3. **Fixed study.css dark-mode text contrast** (subject names, stat
+   values, active tab, heatmap) by adding the
+   `html[data-theme="dark"]` override block every other subsystem's CSS
+   already had. **Rule for any future subsystem CSS: if you define a
+   `--something-dark` token in `:root` and use it as *text* color, you
+   need a dark-mode override for it, full stop - this is the second time
+   a subsystem shipped without one.** Also split the heatmap's darkest
+   cell color into its own fixed `--study-heat-4` token, since a
+   decorative color-scale value and a text-contrast value need to move
+   in *opposite* directions between themes - one token can't correctly
+   serve both jobs.
+4. **Mobile nav is now a square-tile icon grid** (`.nav-icon-grid`) with
+   LAN + the theme switch grouped below it (`.nav-bottom-row`). Both
+   wrappers are `display: contents` on desktop (invisible to layout -
+   the existing flex row is untouched) and become real grid/flex
+   containers only inside the `max-width: 768px` breakpoint. If you add
+   a new always-visible topbar control in the future, decide up front
+   whether it belongs in the icon grid or the bottom row, and add it to
+   both the desktop markup and this mobile CSS - they're two separate
+   rule sets by design, not one generic list.
+
+## v1.3.4 (for future sessions)
+
+Two user-reported bugs, both root-caused and fixed, no feature work.
+Full writeup in CHANGES.md's v1.3.4 section - short version:
+
+1. **Dark mode mobile nav menu was unreadable** - `.subsystem-nav`'s
+   background used `var(--ink)` (a token that flips light/dark with the
+   theme), but its text used `var(--topbar-fg)` (fixed light). In dark
+   mode that's near-white text on a near-white panel. Same issue on
+   `.nav-link.active`'s text color. Both switched to `--topbar-bg`
+   (`style.css`) - the fixed-dark token that already exists specifically
+   so header/chrome elements don't get re-themed by the toggle. **Rule
+   for future chrome/nav work: `--topbar-bg`/`--topbar-fg` for anything
+   that must stay legible in both themes, never `--ink`/`--paper` for
+   that purpose - those two are intentionally theme-reactive everywhere
+   else.**
+2. **Stopwatch rings (Clock's Stopwatch and Study's focus Stopwatch)
+   spun off-screen** - both rotate a `<circle>` inside an SVG via CSS
+   animation; percentage `transform-origin` on a bare SVG shape doesn't
+   reliably measure against the shape's own geometry unless
+   `transform-box: fill-box` is also set. Added `transform-box:
+   fill-box` (`timers.css`, `study.css`) alongside `transform-origin:
+   50% 50%`. **Any future spinning/rotating SVG shape in this project
+   needs both properties from the start - don't rely on the default.**
+
+## v1.3.0 (for future sessions)
+
+Full write-up in `CHANGES.md`'s v1.3.0 section; quick pickup summary.
+A bug fix plus five pieces of new work: global dark/light mode, an
+Events tab + load-once banner, a 12/24-hour clock setting (SBM-only),
+a new Standby Mode subsystem, and a Windows auto-start repair mechanism
+(explicitly untested by Claude - no Windows environment available).
+
+- **Bug fix: Lesson Tracker's hash used to collide with the bare "no
+  hash" root route** (`'#/'`), so `route()` fell through to
+  `dispatch(landingId())` instead of Lesson Tracker specifically -
+  invisible as long as `defaultLandingSubsystem` was left at its
+  default (`'lessons'`), but clicking the Lesson Tracker tab silently
+  landed on whatever the *configured* landing subsystem was otherwise.
+  Fixed by giving it a real hash (`'#/lessons'`) and an explicit
+  `route()` branch, same pattern as every other built-in subsystem.
+  Reproduced with a jsdom harness against the real running server
+  before fixing, and re-verified after. If you're debugging routing
+  issues in `app.js` in a future session, don't reintroduce a
+  subsystem whose hash reduces to an empty `parts[]` array - that's
+  what caused this.
+- **Global dark/light mode**: everything runs off the shared CSS
+  variables already in `public/css/style.css` (`--paper`, `--card`,
+  `--ink`, etc.) - an `html[data-theme="dark"]` override block
+  re-themes the whole site at once, no per-subsystem work needed for
+  new subsystems as long as they keep using those variables (don't
+  hardcode hex colors for surfaces/text - brand accent colors are fine
+  to keep fixed). State: `GET`/`PUT /api/settings/theme` in
+  `routes/settings.js`, one shared config value like everything else in
+  this app (NOT per-device). Fixed clock hours for auto day/night
+  (default 19-7, configurable), 24h hold on manual toggle checked
+  lazily (no background timer).
+- **Events**: new tab inside Clock (`#/timers/events`), own store
+  (`lib/events-store.js`) and router (`routes/events.js`, mounted at
+  `/api/events`). The load-once-per-day banner
+  (`public/js/app.js`) is deliberately **per-device** (localStorage),
+  unlike the existing update-notice banner which is per-server - don't
+  conflate the two mechanisms if extending either one later. Both
+  `window.DexEvents` (exposed from `timers.js`) and the banner/SBM
+  read from the same `GET /api/events/upcoming`.
+- **Standby Mode** (`id: 'sbm'`, `public/js/sbm.js`, `public/css/sbm.css`,
+  `routes/sbm.js`): registered via the generic `window.DexSubsystems`
+  fallback, not a special case in `app.js`. Its live Study/Rec clock
+  reads/controls Study's actual endpoints (`/api/study/active`,
+  `/api/study/rec/active`) rather than keeping its own session state -
+  if you touch Study's session shape in a future version, SBM's mirror
+  needs to stay in sync since it assumes that exact shape
+  (`{id, subjectName, method, running, elapsedMs}`). The follow-mouse
+  creature (`makeCreature()` inside `sbm.js`) is written as a
+  self-contained factory needing only a container element specifically
+  so a future version can reuse it for other subsystems (confirmed
+  in-scope-for-SBM-only for v1.3.0, but built for reuse) - it is NOT
+  currently wired up anywhere except SBM's own render(). Science facts
+  (`lib/facts-store.js`, `lib/facts-seed.json`, 188 seeded) are
+  server-cached per-hour, shared across everyone looking at SBM at
+  once - not randomized per page load.
+- **12/24-hour setting is SBM-only** (`sbmClockFormat` in
+  `config.json`) - confirmed with the user as NOT global for this
+  version, despite the initial brief assuming it might be. If a future
+  session is asked to make clocks elsewhere respect a 12/24 setting,
+  that's new scope, not an extension of this one.
+- **Windows auto-start**: root-caused by reading `install.bat`,
+  `tray.ps1`, `create-shortcuts.ps1`, and `apply-update.ps1` - the
+  Startup-folder entry was only ever created once by `install.bat` and
+  never repaired by the actual update path (`apply-update.ps1`, called
+  from the tray's Update menu / `update.bat`). New `DEXLABS.bat`
+  (idempotent, no elevation) fixes this, called automatically from
+  `apply-update.ps1` now. A separate, explicitly user-initiated tray
+  menu item ("Set Up Proper Auto-Start (Admin)...") elevates just
+  `register-admin-autostart.ps1` (via `Start-Process -Verb RunAs`,
+  same idiom as `Ensure-DexLandingPageFirewall`) to register a
+  Scheduled Task instead. **Untested by Claude** - no Windows/UAC
+  available in this sandbox; see that script's header comment for
+  exactly what to verify by hand, and a flagged open design question
+  (elevate once at registration vs. a visible prompt every login) that
+  wasn't resolved with the user before shipping.
+- **New technical lesson for the "Critical technical lessons learned"
+  list below, worth adding if this file is restructured later**: when
+  testing this app's frontend with a jsdom-based harness (as this
+  session did extensively, driving the real `public/js/*.js` against
+  the real running server rather than mocking anything), clicking a
+  jsdom-rendered `<a>` element via `.click()` can fire a **spurious
+  second `hashchange` event resetting the hash to empty**, even when
+  the anchor has no `href` attribute at all (confirmed with a minimal
+  reproduction using zero DEX Labs code - pure jsdom + a bare anchor +
+  an inline script). This is a jsdom test-harness quirk, not a real
+  browser behavior and not a bug in this app - real browsers don't do
+  this. If a future session sees a breadcrumb `<a>` click behaving
+  strangely in a jsdom test here, check this before assuming it's a
+  real bug: try setting `location.hash` directly (bypassing `.click()`)
+  to confirm the underlying route logic is actually correct.
+- Tested throughout via a jsdom harness driving the real, unmodified
+  `public/js/*.js` against the real Node server over real HTTP -
+  multi-order navigation regressions, the theme toggle end-to-end, the
+  events banner's block-until-OK behavior, SBM's live-session mirroring
+  actually controlling the real Study session (not a duplicate), the
+  creature's four-condition gating and idle/retreat timing, and a full
+  fresh-install-through-Settings-through-every-subsystem pass.
+
+## v1.2.1 (for future sessions)
+
+Full write-up in `CHANGES.md`'s v1.2.1 section; quick pickup summary.
+Two related pieces of work: a new **Rec** tab (timing time spent
+watching recorded lectures/videos on YouTube) and a **Stats** upgrade to
+show Study + Rec combined:
+
+- **Rec is a new tab inside the existing Study subsystem** (`Study | Rec
+  | Stats | Calendar` - registry id/hash unchanged, still just `id:
+  'study'` in `lib/subsystems-registry.js`), not a new subsystem. It's a
+  plain manual timer against Study's existing subjects list: pick a
+  subject, start, stop, it logs the duration - same mechanic as Study's
+  own Stopwatch mode, deliberately **not** a YouTube link paste or an
+  embedded/detected video (DEX Labs doesn't know or need to know what's
+  being watched). No separate subject list, no "add subject" UI, no
+  color picker of its own - Rec's subject picker is read-only and always
+  reflects whatever Study's subjects list currently has.
+- **The one rule that mattered most: Rec tracking is genuinely separate
+  from Study tracking, sharing only the subjects list.** In
+  `data/study.json`: `recSessions` (saved) and `activeRecSession` (at
+  most one in-progress) are new, separate top-level fields - never
+  merged into the existing `sessions`/`activeSession`, never one array
+  with a "type" discriminator. Starting/stopping a Rec timer is fully
+  independent of any active Study session and vice versa - neither
+  blocks the other (tested directly: ran both at once on the same
+  subject, both correctly reported independent elapsed time). Deleting a
+  subject now also refuses while it's the subject of an active Rec
+  timer, mirroring the existing Study-session guard.
+- **New routes live in the existing `routes/study.js` router** (mounted
+  at `/api/study`), not a new router file - `GET /rec/active`,
+  `POST /rec/active/{start,pause,resume,cancel,finish}`, same shape as
+  Study's own `/active/...` routes. Backed by
+  `lib/study-store.js`'s `computeActiveRecView()` (a simpler sibling of
+  `computeActiveView()` - same `rawElapsedMs()` timestamp math reused,
+  no Pomodoro phase logic since there's no "rest phase" equivalent for
+  watching a recording).
+- **`GET /api/busy` now also reports an active Rec timer** (a new
+  `recording` flag, alongside the existing `studying` flag from v1.2.0)
+  so an update can't interrupt someone mid-recording either.
+  `tray.ps1`'s `Test-DexSystemIdle` needed zero changes - it already
+  just forwards whatever `busy`/`reasons` says generically.
+- **Stats (`GET /api/study/stats`) now combines Study + Rec**:
+  `subjectTotals` rows carry `studyMs`/`recMs` separately alongside a
+  combined `totalMs`; new `studyOverallMs`/`recOverallMs` and
+  `studySessionCount`/`recSessionCount` alongside the existing combined
+  `overallMs`/`sessionCount`; the existing `monthly` (v1.2.0) now sums
+  both kinds of session per month. The frontend's combined pie/legend
+  needed no structural change (still just reads `totalMs`); the old
+  single-color per-subject bar became a two-segment "Study vs Rec" bar
+  (indigo + amber) with a "4h studied · 1h20m watched"-style label, so
+  the split is visible per subject rather than hidden behind a merged
+  number.
+- **The Calendar tab (heatmap) and "Days this year" Studied/Slept/Did-
+  nothing counts stay Study-only, deliberately, for this version** -
+  explicitly out of scope per the request. `getStats()`'s Rec
+  aggregation pass never writes to the per-day map the heatmap/day-
+  counts are built from. If a future session wants Rec folded into the
+  Calendar too, that's a real, separate follow-up - don't assume it was
+  implied by "combine Study + Rec" (Stats and Calendar were treated as
+  different scopes on purpose this time).
+- **Rec's own tab gets its own accent color for free**: its content
+  wraps in a `.study-rec-scope` div that locally overrides the same
+  `--study-accent*` CSS variables every shared component (subject cards,
+  the focus-view ring, etc.) already reads from - Rec renders in its own
+  warm amber/rust color everywhere with zero duplicated component CSS.
+  If a future subsystem/tab wants its own color reusing existing shared
+  components this same way, this is the pattern to copy.
+- Tested via the real server as a subprocess + real HTTP requests:
+  concurrent independent Study+Rec sessions on the same subject, the
+  subject-delete guard against each session type separately, the
+  sub-5-second discard rule for Rec (matching Study's Stopwatch), 
+  `GET /api/busy` reflecting `studying`+`recording` together and
+  individually, and `GET /api/study/stats` returning correctly-combined
+  `subjectTotals`/`monthly` while the heatmap/`dayCounts` stayed
+  Study-only even on a day that had both kinds of session logged.
+
+## v1.2.0 (for future sessions)
+
+Full write-up in `CHANGES.md`'s v1.2.0 section; quick pickup summary.
+Two unrelated pieces of work, Study fixes and (the big one) a new
+backup system:
+
+- **Study**: removed the Slept/Did-nothing quick-log nag banner
+  (Calendar's own click-a-day-to-mark-it flow is untouched, still
+  works); subjects can have a manual, permanently-saved chart color
+  (`data/study.json` subjects now have an optional `color` field, `PUT
+  /api/study/subjects/:id/color`); fixed a real CSS bug where the
+  Calendar's month labels drifted out of alignment with their columns
+  (two different grid pitches - 14px vs 13px+3px gap - compounding
+  every column); added a "Hours by month" bar chart to Stats
+  (`getStats()` now also returns `monthly`).
+- **New: Backup** (`lib/backup-store.js` + `routes/backup.js`, mounted
+  at `/api/backup`, `data/backup.json`) - not a subsystem, no nav tab,
+  configured from the Settings page same as AirDrop's settings. Disk
+  backup (mandatory - a folder outside the app folder, every 3 min) +
+  Google Drive backup (optional - OAuth2 "Desktop app" loopback flow,
+  `drive.file` scope only, every 30 min). **If you're extending this,
+  the one thing to never forget: `data/backup.json` itself must stay
+  excluded from what gets backed up** (`backableDataFiles()` filters
+  it out) - it holds the Drive Client Secret + refresh token, and
+  uploading it into the very Drive folder it authenticates to is
+  exactly backwards. A future session adding a new data file doesn't
+  need to do anything special for it to be included - both backup
+  targets just scan `data/*.json` at call time.
+- **Restore-from-Drive on fresh install/reinstall is timing-sensitive**:
+  `maybeRestoreFromDrive()` is gated on whether `data/` had zero
+  `*.json` files in it, but that has to be captured at the very top of
+  `server.js`, before ANY `lib/*-store.js` is `require()`'d - every
+  store in this project auto-creates its own default data file the
+  instant it's required, so checking even one line later would make
+  "is data/ empty" permanently false. If a future session reorders
+  `server.js`'s top-of-file requires, this is the one thing that would
+  silently break (restore would just never fire again, no error, no
+  obvious symptom until someone actually needs it after a reinstall).
+- **`Settings.isSetupComplete()` now checks two independent things**
+  (AirDrop config saved once, AND a disk backup path set) - extended in
+  place rather than duplicating the forced-first-run mechanism.
+  `app.js`'s `route()` needed zero changes for this; it already just
+  calls `isSetupComplete()` generically. If a future required-setup
+  step gets added, extend that same function again rather than
+  building a third parallel mechanism.
+- **tray.ps1**: singleton enforcement via a named Mutex at the very top
+  of the script (fixes a real gap - the Desktop/Start Menu shortcuts
+  bypass `clear-port.bat`'s dupe-killing entirely, going straight to
+  `run-hidden.vbs` → `tray.ps1`); "no update while studying" is now
+  enforced on all three update paths, not just the background one (the
+  two interactive "Check for Updates" menu items never called
+  `Test-DexSystemIdle` before this); a fresh disk+Drive backup now
+  fires right before every update, in addition to (not instead of)
+  apply-update.ps1's existing `backups/` snapshot. **Note for whoever
+  extends the update flow next**: the manual "Select Update File"
+  handler does NOT call the shared `Install-DexUpdateFromDownloadedZip`
+  function (it can't - that function deletes its zip afterward, which
+  would be wrong for a file the person picked themselves) - it has its
+  own inline copy of the stop/apply/start steps, which means the
+  idle-check and pre-update-backup additions had to be made in *two*
+  places, not one. If you touch the update flow again, check both.
+- **Also fixed, unrelated**: `db.js` (Lesson Tracker's DB) never had the
+  auto-create-default-file guard every other store has - a genuinely
+  fresh `data/` folder 500'd on the very first `/api/subjects` request.
+  Found only because this release's restore-on-fresh-install feature
+  made "does an empty data/ folder actually work" worth checking for
+  the first time. Fixed the same way every other store already does it
+  (`if (!fs.existsSync(DB_PATH)) fs.writeFileSync(...)`); doesn't touch
+  `db.js`'s actual read/write/update logic and has zero effect on any
+  existing `data/db.json`.
+- Tested: the entire Google Drive OAuth/backup/restore path against a
+  mocked Google API (10 scenarios - see CHANGES.md for the list),
+  real disk backup file copies, and the Settings page's new HTML
+  templates extracted and exercised directly against real API response
+  shapes for every state. **Not tested** (same standing limitation as
+  every PowerShell/Windows-only piece in this project, every release
+  so far): the Mutex/singleton behavior, the folder-browse dialog, and
+  the updated interactive update menu handlers, on real Windows - no
+  Windows/PowerShell available in this environment, same as always. A
+  live Google OAuth consent-screen round-trip is also unverified (no
+  network access to Google's domains from this sandbox) - flag this
+  specifically if the user reports anything odd about the Connect flow,
+  since it's the one piece with zero real-world verification of any
+  kind yet.
 
 ## v1.1.0 merge (for future sessions)
 

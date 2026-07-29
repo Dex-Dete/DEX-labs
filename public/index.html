@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="/css/settings.css" />
 <link rel="stylesheet" href="/css/ytdownload.css" />
 <link rel="stylesheet" href="/css/study.css" />
+<link rel="stylesheet" href="/css/sbm.css" />
 </head>
 <body>
   <header class="topbar">
@@ -26,10 +27,32 @@
            loadAndRenderNav() in app.js, lib/subsystems-registry.js on the
            server). This is what lets a subsystem be hidden from the menu,
            and lets future subsystems (there will eventually be 30+) show
-           up automatically without editing this file. -->
-      <div class="nav-links" id="nav-links"></div>
-      <button class="nav-link" id="nav-settings-btn" title="Settings">⚙ Settings</button>
-      <button class="icon-btn nav-lan-btn" id="server-info-btn" title="Show LAN address">LAN address</button>
+           up automatically without editing this file.
+           v1.3.5: split into two groups - nav-icon-grid (subsystems +
+           Settings) and nav-bottom-row (LAN + theme switch). On desktop
+           both are `display:contents` so this looks exactly like one
+           flat row, same as before. On mobile, nav-icon-grid becomes a
+           compact square-icon grid instead of one-button-per-row, and
+           nav-bottom-row renders as its own row underneath it - see the
+           mobile breakpoint in style.css. The icon/name nav-label toggle
+           that used to live here has moved to Settings > Navigation
+           (still applies everywhere via the same body.nav-mode-* class -
+           see applyNavMode() in app.js - just configured from one place
+           instead of cluttering the nav itself). -->
+      <div class="nav-icon-grid" id="nav-icon-grid">
+        <div class="nav-links" id="nav-links"></div>
+        <button class="nav-link" id="nav-settings-btn" title="Settings"><span class="nav-icon">⚙</span><span class="nav-name">Settings</span></button>
+      </div>
+      <div class="nav-bottom-row" id="nav-bottom-row">
+        <button class="icon-btn nav-lan-btn" id="server-info-btn" title="Show LAN address">LAN address</button>
+        <label class="nav-theme-toggle" id="nav-theme-toggle" title="Toggle dark/light mode">
+          <span class="nav-theme-icon" id="nav-theme-icon">🌙</span>
+          <span class="nav-theme-switch">
+            <input type="checkbox" id="theme-toggle-checkbox" />
+            <span class="nav-theme-track"><span class="nav-theme-thumb"></span></span>
+          </span>
+        </label>
+      </div>
     </nav>
   </header>
   <div class="nav-backdrop" id="nav-backdrop"></div>
@@ -44,6 +67,7 @@
   <script src="/js/settings.js"></script>
   <script src="/js/ytdownload.js"></script>
   <script src="/js/study.js"></script>
+  <script src="/js/sbm.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

@@ -15,10 +15,57 @@
   --highlight: #d9a32b;
   --margin: #b9c4d6;
   --success: #3b7a57;
+  --gold-text: #8a6416;
+  --error-soft-bg: #f6e6e6;
   --radius: 10px;
   --shadow: 0 2px 6px rgba(31, 44, 76, 0.12), 0 1px 2px rgba(31, 44, 76, 0.08);
+  /* v1.3.1 bug fix: the header bar (.topbar) was deliberately built as
+     an ALWAYS-dark bar with light text (background: var(--ink); color:
+     var(--paper);) - that only ever looked right in light mode, where
+     --ink is dark and --paper is light. Dark mode's override block
+     below swaps which of --ink/--paper is dark and which is light (by
+     design, everywhere else on the page), which flipped the topbar's
+     colors right along with it - the actual v1.3.0 bug (a bright white
+     header bar in dark mode). Fixing this properly means the header
+     needs its own fixed dark navy / cream pair that does NOT change
+     with the theme toggle, instead of reusing --ink/--paper. */
+  --topbar-bg: #1f2c4c;
+  --topbar-fg: #f3ecd9;
   font-size: 16px;
 }
+
+/* ---- v1.3.0: global dark mode -------------------------------------
+   Same design-token approach as the light palette above, just an
+   alternate set of values under [data-theme="dark"] on <html>. Because
+   the whole site already renders off these variables (var(--paper),
+   var(--ink), etc. - see every subsystem's CSS file), flipping the
+   attribute re-themes the entire site, not just the shared chrome.
+   app.js sets/removes this attribute based on GET /api/settings/theme
+   (see routes/settings.js) - manual toggle, or the fixed-hours auto
+   schedule if no manual override is active.
+----------------------------------------------------------------------*/
+html[data-theme="dark"] {
+  --paper: #171c30;
+  --paper-line: #262e4d;
+  --card: #212949;
+  --ink: #eef1f8;
+  --ink-soft: #aab4cf;
+  --pen: #e0574a;
+  --pen-dark: #c94435;
+  --highlight: #e8bd5a;
+  --margin: #3a4568;
+  --success: #5cb17e;
+  --gold-text: #e8c66b;
+  --error-soft-bg: #3a2430;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+  /* Slightly richer/deeper than light mode's --topbar-bg so the header
+     doesn't look completely flat against the also-dark page body below
+     it - still always dark, on purpose, in both themes. */
+  --topbar-bg: #10152a;
+  --topbar-fg: #f3ecd9;
+}
+
+html, body { transition: background-color 0.25s ease, color 0.25s ease; }
 
 * { box-sizing: border-box; }
 
@@ -65,8 +112,8 @@ a { color: var(--pen); }
   align-items: center;
   gap: 12px;
   padding: 14px 18px;
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
   box-shadow: var(--shadow);
 }
 .topbar .brand {
@@ -103,7 +150,7 @@ a { color: var(--pen); }
 .icon-btn {
   background: transparent;
   border: 1px solid rgba(243, 236, 217, 0.4);
-  color: var(--paper);
+  color: var(--topbar-fg);
   padding: 7px 12px;
   border-radius: 999px;
   cursor: pointer;
@@ -134,7 +181,7 @@ a { color: var(--pen); }
   display: block;
   width: 18px;
   height: 2px;
-  background: var(--paper);
+  background: var(--topbar-fg);
   border-radius: 2px;
   transition: transform 0.18s ease, opacity 0.18s ease;
 }
@@ -154,7 +201,7 @@ a { color: var(--pen); }
 .nav-link {
   background: transparent;
   border: 1px solid rgba(243, 236, 217, 0.4);
-  color: var(--paper);
+  color: var(--topbar-fg);
   padding: 7px 14px;
   border-radius: 999px;
   cursor: pointer;
@@ -165,9 +212,88 @@ a { color: var(--pen); }
 .nav-link.active {
   background: var(--highlight);
   border-color: var(--highlight);
-  color: var(--ink);
+  color: var(--topbar-bg);
 }
 .nav-link.active:hover { background: var(--highlight); }
+
+/* v1.3.4: every nav button (subsystem links + Settings) always renders
+   both spans below - which one is visible is controlled purely by a
+   class on <body>, toggled by the switch in the topbar. Default is
+   icon-only; ".nav-mode-name" on <body> switches to name-only. This is
+   the single place that decides icon-vs-name display, so mobile's
+   off-canvas nav and desktop's inline nav (same button markup, just
+   repositioned by the breakpoint below) always agree with each other. */
+.nav-icon { font-size: 1rem; line-height: 1; }
+.nav-name { display: none; }
+body.nav-mode-name .nav-icon { display: none; }
+body.nav-mode-name .nav-name { display: inline; }
+body.nav-mode-icon .subsystem-nav .nav-link {
+  padding: 7px 12px;
+  min-width: 38px;
+  text-align: center;
+}
+
+/* v1.3.5: small reusable toggle-switch component - used by the header's
+   day/night switch below AND by Settings > Navigation's icon/name
+   switch (settings.css). `currentColor` for the track/thumb means each
+   usage site just needs the right `color` in scope (topbar context
+   already sets color: var(--topbar-fg); Settings' panel context uses
+   the page's normal var(--ink)) rather than needing its own copy of
+   this whole block. */
+.toggle-switch { position: relative; display: inline-flex; flex-shrink: 0; }
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+.toggle-track {
+  display: block;
+  width: 38px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(128, 128, 128, 0.3);
+  border: 1px solid rgba(128, 128, 128, 0.45);
+  transition: background 0.15s ease;
+}
+.toggle-thumb {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 2px;
+  border-radius: 50%;
+  background: currentColor;
+  transition: transform 0.15s ease;
+}
+.toggle-switch input:checked + .toggle-track { background: var(--highlight); }
+.toggle-switch input:checked + .toggle-track .toggle-thumb { transform: translateX(18px); }
+.toggle-switch input:focus-visible + .toggle-track { outline: 2px solid var(--highlight); outline-offset: 2px; }
+
+/* Header day/night switch - replaces the old single icon button so it's
+   unambiguous which state is "on" without having to read a swapped
+   glyph. Sun/moon bookend the switch; whichever side is active gets a
+   subtle highlight so it's readable at a glance. */
+.nav-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--topbar-fg);
+  user-select: none;
+}
+.nav-theme-icon { font-size: 0.85rem; opacity: 0.55; }
+html[data-theme="light"] .nav-theme-icon:first-child,
+html[data-theme="dark"] .nav-theme-icon:last-child { opacity: 1; }
+
+/* v1.3.5: nav-icon-grid wraps the subsystem buttons + Settings; nav-
+   bottom-row wraps the LAN button + day/night switch. `display:contents`
+   on desktop means these wrappers don't affect layout at all - the
+   .subsystem-nav flex row above still sees all of these as direct
+   children, exactly like before v1.3.5. The mobile breakpoint below
+   turns them into two real, separately-laid-out blocks. */
+.nav-icon-grid, .nav-bottom-row { display: contents; }
 
 .crumbs {
   padding: 10px 18px 0;
@@ -316,7 +442,7 @@ input[type="text"], input[type="url"] {
   padding: 11px 12px;
   border-radius: 7px;
   border: 1.5px solid var(--margin);
-  background: #fff;
+  background: var(--card);
   color: var(--ink);
 }
 input[type="text"]:focus, input[type="url"]:focus {
@@ -355,7 +481,7 @@ input[type="text"]:focus, input[type="url"]:focus {
 .add-error.add-warning {
   background: rgba(230, 168, 23, 0.12);
   border-color: rgba(230, 168, 23, 0.4);
-  color: #8a6416;
+  color: var(--gold-text);
 }
 
 /* ---- Lesson list ---- */
@@ -428,7 +554,7 @@ input[type="text"]:focus, input[type="url"]:focus {
   display: inline-block;
   font-size: 0.72rem;
   background: rgba(217, 163, 43, 0.22);
-  color: #8a6511;
+  color: var(--gold-text);
   padding: 2px 8px;
   border-radius: 999px;
   margin-top: 4px;
@@ -469,8 +595,8 @@ input[type="text"]:focus, input[type="url"]:focus {
 .file-item .ficon {
   width: 38px; height: 38px;
   border-radius: 8px;
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
   display: flex; align-items: center; justify-content: center;
   font-size: 0.7rem; font-weight: bold; flex-shrink: 0;
 }
@@ -506,8 +632,8 @@ input[type="text"]:focus, input[type="url"]:focus {
   bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
   padding: 10px 18px;
   border-radius: 999px;
   box-shadow: var(--shadow);
@@ -642,7 +768,7 @@ input[type="text"]:focus, input[type="url"]:focus {
     right: 0;
     height: 100%;
     width: min(78vw, 300px);
-    background: var(--ink);
+    background: var(--topbar-bg);
     flex-direction: column;
     align-items: stretch;
     gap: 4px;
@@ -662,13 +788,52 @@ input[type="text"]:focus, input[type="url"]:focus {
     border-radius: 8px;
     font-size: 0.95rem;
   }
-  .subsystem-nav .nav-lan-btn {
-    margin-top: 10px;
-    border-top: 1px solid rgba(243, 236, 217, 0.2);
-    padding-top: 16px;
-    text-align: left;
-    border-radius: 8px;
+
+  /* v1.3.5: compact square-icon grid for the subsystem+Settings buttons,
+     replacing the old one-full-width-row-per-button list - each tile
+     only needs a little breathing room from its neighbors, not a whole
+     row. Falls back to the previous stacked list automatically in name
+     mode, since full subsystem names need horizontal room a square tile
+     can't give them. */
+  .subsystem-nav .nav-icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
   }
+  .subsystem-nav .nav-icon-grid .nav-link {
+    width: auto;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 10px;
+  }
+  .subsystem-nav .nav-icon-grid .nav-link .nav-icon { font-size: 1.4rem; }
+  body.nav-mode-name .subsystem-nav .nav-icon-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  body.nav-mode-name .subsystem-nav .nav-icon-grid .nav-link {
+    width: 100%;
+    aspect-ratio: auto;
+    justify-content: flex-start;
+    padding: 13px 16px;
+  }
+
+  /* LAN address + day/night switch, grouped below the icon grid rather
+     than mixed in with the subsystem buttons above. */
+  .subsystem-nav .nav-bottom-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(243, 236, 217, 0.2);
+  }
+  .subsystem-nav .nav-bottom-row .nav-lan-btn { border-radius: 8px; }
+  .subsystem-nav .nav-theme-toggle { justify-content: space-between; }
 
   main { padding: 14px 14px 90px; }
   .page-title { font-size: 1.35rem; }

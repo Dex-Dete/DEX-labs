@@ -4,7 +4,7 @@
    from style.css rather than reinventing them. */
 :root {
   --ytdl-accent: #6a3f8f;
-  --ytdl-accent-soft: #ede7f2;
+  --ytdl-accent-soft: rgba(106, 63, 143, 0.12);
 }
 
 .ytdl-page-sub {
@@ -26,7 +26,7 @@
   font-size: 0.9rem;
 }
 .ytdl-setup-banner.error {
-  background: #f6e6e6;
+  background: var(--error-soft-bg);
   border-color: var(--pen);
   color: var(--pen-dark);
 }

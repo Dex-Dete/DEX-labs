@@ -42,6 +42,51 @@ body {
   max-width: 640px;
 }
 
+.discover-panel { margin-bottom: 36px; }
+.discover-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.discover-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.discover-status {
+  font-size: 0.85rem;
+  color: var(--lp-ink-soft);
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+}
+.discover-status.scanning { color: var(--lp-accent); }
+.discover-sub { margin: 6px 0 18px; }
+
+.saved-sites-title {
+  font-size: 1.2rem;
+  margin: 0 0 14px;
+}
+
+.discover-card {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+.discover-favicon {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  flex: none;
+  object-fit: cover;
+  background: var(--lp-bg);
+}
+.discover-card .site-card-top {
+  justify-content: flex-start;
+}
+.discover-card .site-name {
+  font-size: 0.98rem;
+}
+
 .sites-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 260px));

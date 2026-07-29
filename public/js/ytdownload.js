@@ -330,12 +330,12 @@
     loadHistory();
   }
 
-  window.YTDownload = { render };
+  window.YTDownload = { render, cleanup: stopTimers };
 
   // v1.1.0: merge - self-register with app.js's generic subsystem
   // dispatch (see lib/subsystems-registry.js on the server / route()'s
   // window.DexSubsystems fallback in app.js). This is the only wiring
   // this module needed to plug into the show/hide-subsystems system.
   window.DexSubsystems = window.DexSubsystems || {};
-  window.DexSubsystems['ytdownload'] = { render };
+  window.DexSubsystems['ytdownload'] = { render, cleanup: stopTimers };
 })();

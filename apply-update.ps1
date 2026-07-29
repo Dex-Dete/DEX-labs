@@ -302,6 +302,27 @@ try {
   Write-Host "[WARNING] Could not refresh the icon/shortcuts - not critical, the app itself still works. Error: $_"
 }
 
+# ---------- 5.5. Repair the auto-start entry (v1.3.0) ----------
+# This is the actual fix for "auto-start stops working after updates":
+# before v1.3.0, the Startup-folder entry was only ever CREATED by
+# install.bat and nothing afterwards ever verified or repaired it -
+# including this script, despite this being what actually runs on every
+# update via the tray or update.bat. See DEXLABS.bat's own header
+# comment for the full story. Needs no elevation (current-user Startup
+# folder is always user-writable), so this can run unconditionally,
+# silently, on every single update with no prompt.
+try {
+  $repairScript = Join-Path $AppRoot "DEXLABS.bat"
+  if (Test-Path $repairScript) {
+    Push-Location $AppRoot
+    & cmd.exe /c "DEXLABS.bat" /silent
+    Pop-Location
+    Write-Host "[OK] Auto-start entry checked/repaired."
+  }
+} catch {
+  Write-Host "[WARNING] Could not check/repair the auto-start entry - not critical, the app itself still works. Run DEXLABS.bat by hand if auto-start seems to have stopped working. Error: $_"
+}
+
 # ---------- 6. Clean up staging ----------
 try { Remove-Item $stagingDir -Recurse -Force -ErrorAction SilentlyContinue } catch {}
 try { if ($hasExistingLandingPageData) { Remove-Item $landingPageDataPreserve -Recurse -Force -ErrorAction SilentlyContinue } } catch {}

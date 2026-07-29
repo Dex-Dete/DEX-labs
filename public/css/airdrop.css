@@ -11,6 +11,13 @@
   --airdrop-accent-soft: rgba(47, 102, 144, 0.12);
 }
 
+/* v1.3.5: see study.css's matching block for the full explanation. */
+html[data-theme="dark"] {
+  --airdrop-accent: #4f9fd6;
+  --airdrop-accent-dark: #8fc6ec;
+  --airdrop-accent-soft: rgba(79, 159, 214, 0.22);
+}
+
 .airdrop-page-sub {
   color: var(--ink-soft);
   margin: -12px 0 18px;

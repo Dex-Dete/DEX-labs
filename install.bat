@@ -64,19 +64,13 @@ if %errorlevel% equ 0 (
 
 echo.
 echo Setting up auto-start when you log into Windows...
-set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
-(
-  echo Set WshShell = CreateObject("WScript.Shell"^)
-  echo WshShell.CurrentDirectory = "%~dp0"
-  echo WshShell.Run "powershell.exe -NoProfile -STA -WindowStyle Hidden -ExecutionPolicy Bypass -File ""%~dp0tray.ps1""", 0, False
-) > "%STARTUP%\LessonTracker.vbs"
-echo [OK] Will auto-start silently (with a system tray icon) next time you log in.
+call DEXLABS.bat /silent
 
 echo.
 echo Making sure port %DEXPORT% is free (stopping any stuck previous instance)...
 call clear-port.bat
 echo Starting the server now...
-wscript.exe //nologo "%STARTUP%\LessonTracker.vbs"
+wscript.exe //nologo "%~dp0run-hidden.vbs"
 timeout /t 2 >nul
 
 echo.

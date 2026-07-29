@@ -9,6 +9,13 @@
   --schedule-accent-soft: rgba(184, 134, 11, 0.12);
 }
 
+/* v1.3.5: see study.css's matching block for the full explanation. */
+html[data-theme="dark"] {
+  --schedule-accent: #e0ac3a;
+  --schedule-accent-dark: #f2cb74;
+  --schedule-accent-soft: rgba(224, 172, 58, 0.22);
+}
+
 .schedule-page-sub {
   color: var(--ink-soft);
   margin: -12px 0 18px;

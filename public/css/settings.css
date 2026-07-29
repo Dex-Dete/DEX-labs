@@ -9,6 +9,7 @@
 .nav-links {
   display: contents;
 }
+.set-nav-mode-row { color: var(--ink); }
 
 .setup-required-banner {
   background: rgba(217, 163, 43, 0.16);
@@ -67,3 +68,19 @@
   justify-content: flex-end;
   margin-top: 16px;
 }
+
+/* ---- v1.3.0: events banner (shares .modal-overlay/.modal-box, and the
+   .update-banner-footer OK-button layout above) ---- */
+.events-banner-list { display: flex; flex-direction: column; gap: 10px; }
+.events-banner-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--paper);
+  border: 1.5px solid var(--timers-accent, var(--margin));
+  border-radius: var(--radius);
+}
+.events-banner-name { font-weight: 700; }
+.events-banner-remaining { color: var(--timers-accent, var(--ink-soft)); font-weight: 700; white-space: nowrap; }
+

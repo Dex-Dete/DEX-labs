@@ -7,6 +7,36 @@ no internet exposure - everything stays on your own network.
 DEX Labs itself is just a shell; the actual features are independent
 **subsystems** plugged into it, switchable from the top nav bar:
 
+> **Note on this repo's zip layout:** the top-level folder also
+> contains a `landing-page/` directory - the standalone "🏠 Websites on
+> this computer" page (its own `server.js`, `lib/`, `public/`, own port
+> 80 process). It is a genuinely separate program from DEX Labs itself
+> (see `landing-page/README.md` for why), NOT one of the "subsystems"
+> listed below, and does not appear in `lib/subsystems-registry.js` -
+> features for it get added directly under `landing-page/`, not
+> registered as a DEX Labs subsystem. Because `landing-page` sorts
+> alphabetically before `package.json` in most zip viewers/`unzip -l`
+> output, it's easy to glance at a listing, see `landing-page/...` at
+> the top, and wrongly conclude the archive has no `package.json` at
+> its root or that DEX Labs' real root is nested somewhere. It isn't -
+> `package.json`, `server.js`, `lib/`, `public/`, `routes/` for DEX Labs
+> itself all sit directly at the archive root, as siblings of
+> `landing-page/`, not inside it. If a future session (AI or human)
+> packages a new version as a zip and something looks off about the
+> root, check the FULL listing (`unzip -l file.zip`) rather than
+> assuming from the first few sorted entries.
+>
+> Also worth knowing (v1.1.9): a "find other devices on the network"
+> feature was briefly built as a DEX-Labs-subsystem page
+> (`lib/netscan-store.js` / `routes/netscan.js` / `public/js/netscan.js`
+> under the main DEX Labs tree) before being removed in favor of living
+> inside `landing-page/` instead, as `landing-page/lib/discover.js` +
+> `GET /api/discover` + the auto-scan loop in
+> `landing-page/public/app.js`. That's the right home for it - it's
+> fundamentally about "what other websites exist on this network,"
+> which is exactly what the Landing Page already is. If asked for
+> something similar again, build it there, not as a new subsystem.
+
 - **📚 Lesson Tracker** — organize YouTube lesson videos and playlists by
   subject and category, track which ones you've watched, view full
   titles/descriptions, and upload/download files ("tutes") per subject.

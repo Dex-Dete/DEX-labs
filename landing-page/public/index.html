@@ -18,6 +18,26 @@
       </p>
     </header>
 
+    <section class="discover-panel">
+      <div class="discover-head">
+        <h2>🔎 Found on your network</h2>
+        <span id="discover-status" class="discover-status">Scanning…</span>
+      </div>
+      <p class="sub discover-sub">
+        Other websites running on devices on this same network - routers,
+        cameras/NVRs, other DEX Labs machines, consoles, and more - found
+        automatically. Only currently-reachable ones are shown; this
+        refreshes on its own, nothing to press. Only scans this local
+        network, not the internet - use it on networks you own or are
+        allowed to look around on, since it will show any device that
+        answers, including neighbours' on a shared/apartment network.
+      </p>
+      <div id="discover-list" class="sites-grid">
+        <div class="empty-state">Scanning your network…</div>
+      </div>
+    </section>
+
+    <h2 class="saved-sites-title">Your saved websites</h2>
     <div id="sites-list" class="sites-grid">
       <div class="empty-state">Loading…</div>
     </div>

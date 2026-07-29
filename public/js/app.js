@@ -72,13 +72,43 @@
       btn.className = 'nav-link';
       btn.id = `nav-${s.id}-btn`;
       btn.title = s.label;
-      btn.textContent = s.navLabel;
+      btn.innerHTML = `<span class="nav-icon">${escapeHtml(s.icon || '')}</span><span class="nav-name">${escapeHtml(s.label)}</span>`;
       btn.addEventListener('click', () => { location.hash = s.hash; });
       navLinksEl.appendChild(btn);
       navButtonEls[s.id] = btn;
     });
     return registry;
   }
+
+  // ---- Icon / name nav mode --------------------------------------------
+  // v1.3.4: nav labels used to be a single hardcoded string per
+  // subsystem, and inconsistently included an emoji or not (see
+  // CHANGES.md's v1.3.4 section). Every nav button (subsystem links +
+  // Settings) now always renders BOTH a `.nav-icon` and a `.nav-name`
+  // span, and this mode just shows/hides one or the other via a class on
+  // <body> - same markup, same DOM, works identically on mobile's
+  // off-canvas nav and desktop's inline nav since both share the exact
+  // same button structure. Preference is a pure display setting (not
+  // project data), so it's stored in localStorage, not the server config.
+  // v1.3.5: the toggle switch itself moved out of the topbar into
+  // Settings > Navigation (see settings.js's navigationHtml()) - it was
+  // one more thing crowding the header for something you set once and
+  // rarely touch. This module still owns applying the mode (so it can
+  // run on every page, not just Settings), exposed as window.DexNavMode
+  // so Settings' switch has something to call.
+  const NAV_MODE_KEY = 'dexNavMode';
+  function applyNavMode(mode) {
+    document.body.classList.toggle('nav-mode-icon', mode !== 'name');
+    document.body.classList.toggle('nav-mode-name', mode === 'name');
+  }
+  window.DexNavMode = {
+    get: () => (localStorage.getItem(NAV_MODE_KEY) === 'name' ? 'name' : 'icon'),
+    set: (mode) => {
+      localStorage.setItem(NAV_MODE_KEY, mode === 'name' ? 'name' : 'icon');
+      applyNavMode(mode);
+    },
+  };
+  applyNavMode(window.DexNavMode.get());
 
   // Every DEX Labs subsystem calls this (with its registry id, or
   // 'settings') so the top bar always shows which one you're currently
@@ -209,6 +239,29 @@
     return { close };
   }
 
+  // Same look as showModal, but the ONLY way out is the button the
+  // caller wires up in bodyHtml (e.g. its own "OK" button) - no ✕, no
+  // backdrop click, no Escape. Used for the v1.3.0 events banner, which
+  // has to actually be acknowledged (see PROJECT_BRIEFING.md), unlike
+  // the update banner above which is fine being dismissed either way.
+  function showBlockingModal(titleHtml, bodyHtml) {
+    let overlay = document.getElementById('modal-overlay');
+    if (overlay) overlay.remove();
+    overlay = document.createElement('div');
+    overlay.id = 'modal-overlay';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-title">${titleHtml}</div>
+        </div>
+        <div class="modal-body">${bodyHtml}</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    return { close: () => overlay.remove() };
+  }
+
   async function api(path, opts = {}) {
     const res = await fetch(path, {
       headers: opts.body ? { 'Content-Type': 'application/json' } : undefined,
@@ -220,6 +273,52 @@
     if (!res.ok) throw new Error((data && data.error) || 'Something went wrong');
     return data;
   }
+
+  // ---------------- v1.3.0: global dark/light theme ---------------------
+  // Reachable from every subsystem via the header toggle (shared chrome,
+  // not per-subsystem). The whole site's colors respect it because every
+  // subsystem's CSS is already built on the shared design-token
+  // variables in style.css - see the [data-theme="dark"] override block
+  // there. State lives server-side (GET/PUT /api/settings/theme, see
+  // routes/settings.js) so it's consistent across a reload and across
+  // devices, same as every other setting in this app.
+  window.DexTheme = window.DexTheme || {};
+  let currentThemeEffective = 'light';
+
+  function applyTheme(effective) {
+    currentThemeEffective = effective;
+    document.documentElement.dataset.theme = effective;
+    const checkbox = document.getElementById('theme-toggle-checkbox');
+    if (checkbox) checkbox.checked = effective === 'dark';
+  }
+  window.DexTheme.getEffective = () => currentThemeEffective;
+
+  async function refreshTheme() {
+    try {
+      const t = await api('/api/settings/theme');
+      applyTheme(t.effective);
+    } catch (e) { /* keep whatever's currently applied - offline-tolerant */ }
+  }
+
+  const themeToggleCheckbox = document.getElementById('theme-toggle-checkbox');
+  if (themeToggleCheckbox) {
+    themeToggleCheckbox.addEventListener('change', async () => {
+      const next = themeToggleCheckbox.checked ? 'dark' : 'light';
+      // Apply immediately for a snappy toggle, then confirm with the server
+      // (which is also where the 24h manual-override hold gets set).
+      applyTheme(next);
+      try {
+        const t = await api('/api/settings/theme', { method: 'PUT', body: { mode: next } });
+        applyTheme(t.effective);
+      } catch (e) { showToast(e.message || 'Could not change theme'); }
+    });
+  }
+
+  refreshTheme();
+  // Auto mode can cross its day/night boundary (or another device's
+  // manual toggle/24h-hold can expire) while this tab just sits open -
+  // a light poll keeps it in sync without needing a reload.
+  setInterval(refreshTheme, 60 * 1000);
 
   function uploadFiles(subjectId, files, onProgress) {
     return new Promise((resolve, reject) => {
@@ -306,7 +405,78 @@
     } catch (e) { /* not critical - just skip the banner */ }
   })();
 
+  // v1.3.0: events banner - once per calendar day, per DEVICE (not
+  // server-wide like the update banner above, which is why this tracks
+  // its "already shown today" flag in localStorage instead of on the
+  // server - the brief specifically asked for per-device here). Lists
+  // time remaining until each upcoming event; has to be dismissed with
+  // OK (see showBlockingModal above), and won't reappear again today on
+  // this device even across reloads/navigation, same end-user behavior
+  // as the update banner just with a different (client-side) mechanism
+  // since the requirement itself is different (per-device, not
+  // per-version-per-server).
+  (async () => {
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10);
+      const storageKey = 'dexlabs-events-banner-shown';
+      if (localStorage.getItem(storageKey) === todayKey) return;
+
+      const upcoming = await window.DexEvents.fetchUpcoming();
+      if (!upcoming.length) return;
+
+      const rows = upcoming.map((ev) => {
+        const days = window.DexEvents.daysUntil(ev.targetDate);
+        return `<div class="events-banner-row"><span class="events-banner-name">${escapeHtml(ev.name)}</span><span class="events-banner-remaining">${escapeHtml(window.DexEvents.formatRemaining(days))}</span></div>`;
+      }).join('');
+
+      showBlockingModal(
+        '📌 Upcoming events',
+        `
+          <div class="events-banner-list">${rows}</div>
+          <div class="update-banner-footer"><button class="btn" id="events-banner-ok-btn">OK</button></div>
+        `
+      );
+      document.getElementById('events-banner-ok-btn').addEventListener('click', () => {
+        localStorage.setItem(storageKey, todayKey);
+        document.getElementById('modal-overlay').remove();
+      });
+    } catch (e) { /* not critical - just skip the banner */ }
+  })();
+
   // ---------------- Router ----------------
+  // v1.3.2 perf fix: several subsystems (Clock, Study, YouTube
+  // Downloader, AirDrop, Standby Mode) run their own 1-15 second
+  // setInterval polls while their tab is open (live countdowns,
+  // focus-session status, download progress, etc). Each one already
+  // cleared its OWN previous interval when re-entered - but nothing
+  // stopped it when the user navigated AWAY to a completely different
+  // subsystem instead. That meant leaving, say, a running Study focus
+  // session's poll (or a Clock countdown poll) ticking away in the
+  // background - hitting the server and doing DOM work once a second -
+  // for as long as the browser tab stayed open, even hours later on a
+  // completely unrelated page. On a low-end machine those idle-but-
+  // still-running polls add up and are a very plausible source of the
+  // app feeling like it "gets spotty" the longer a session runs. Every
+  // module that owns a poll loop now exposes a `cleanup()` - called
+  // here, once, right before switching to a different subsystem.
+  //
+  // IMPORTANT: this state lives out here at module scope, NOT inside
+  // route() below - route() re-runs on every single hashchange, so a
+  // `let` declared inside it would reset to null on every navigation
+  // and this would never actually fire.
+  let activeSubsystemId = null;
+  function stopSubsystemPolling(id) {
+    if (!id) return;
+    try {
+      if (id === 'timers' && window.Timers && typeof window.Timers.cleanup === 'function') return window.Timers.cleanup();
+      if (id === 'study' && window.Study && typeof window.Study.cleanup === 'function') return window.Study.cleanup();
+      if (id === 'ytdownload' && window.YTDownload && typeof window.YTDownload.cleanup === 'function') return window.YTDownload.cleanup();
+      if (id === 'airdrop' && window.Airdrop && typeof window.Airdrop.cleanup === 'function') return window.Airdrop.cleanup();
+      const generic = window.DexSubsystems && window.DexSubsystems[id];
+      if (generic && typeof generic.cleanup === 'function') generic.cleanup();
+    } catch (e) { /* never let a cleanup slip block navigation */ }
+  }
+
   window.addEventListener('hashchange', route);
   window.addEventListener('DOMContentLoaded', route);
 
@@ -344,6 +514,8 @@
       // that's the zero-app.js-edits path future subsystems use (see
       // lib/subsystems-registry.js).
       function dispatch(id) {
+        if (activeSubsystemId && activeSubsystemId !== id) stopSubsystemPolling(activeSubsystemId);
+        activeSubsystemId = id;
         window.setSubsystem(id);
         if (id === 'lessons') return renderSubjects();
         if (id === 'airdrop') return window.Airdrop.render();
@@ -387,10 +559,20 @@
       const ownerId = parts[0] === 'subject' ? 'lessons' : parts[0];
       if (hidden.has(ownerId)) { location.hash = '#/'; return; }
 
+      // v1.3.0: explicit branch for Lesson Tracker's own hash
+      // ('#/lessons' as of this version - see lib/subsystems-registry.js
+      // for why it's no longer just '#/'), same pattern as every other
+      // built-in subsystem below. This is what actually fixes the bug -
+      // Lesson Tracker no longer relies on parts.length === 0 falling
+      // through to dispatch(landingId()), which only accidentally meant
+      // "Lesson Tracker" when defaultLandingSubsystem was set to it.
+      if (parts[0] === 'lessons') return dispatch('lessons');
       if (parts[0] === 'airdrop') return dispatch('airdrop');
       if (parts[0] === 'schedule') return dispatch('schedule');
       if (parts[0] === 'timers') return dispatch('timers');
       if (parts[0] === 'subject') {
+        if (activeSubsystemId && activeSubsystemId !== 'lessons') stopSubsystemPolling(activeSubsystemId);
+        activeSubsystemId = 'lessons';
         window.setSubsystem('lessons');
         if (parts[1] && !parts[2]) return renderSubjectHome(parts[1]);
         if (parts[1] === undefined) return renderSubjects();
@@ -423,7 +605,7 @@
 
   // ---------------- Views ----------------
   async function renderSubjects() {
-    setCrumbs([{ label: 'Subjects', href: '#/' }]);
+    setCrumbs([{ label: 'Subjects', href: '#/lessons' }]);
     view.innerHTML = `<h1 class="page-title">Your Subjects</h1><div class="grid" id="subj-grid"><div class="empty-state">Loading…</div></div>`;
     const subjects = await api('/api/subjects');
     const grid = document.getElementById('subj-grid');
@@ -451,8 +633,8 @@
   async function renderSubjectHome(subjectId) {
     const subjects = await api('/api/subjects');
     const subject = subjects.find((s) => s.id === subjectId);
-    if (!subject) { location.hash = '#/'; return; }
-    setCrumbs([{ label: 'Subjects', href: '#/' }, { label: subject.name, href: `#/subject/${subjectId}` }]);
+    if (!subject) { location.hash = '#/lessons'; return; }
+    setCrumbs([{ label: 'Subjects', href: '#/lessons' }, { label: subject.name, href: `#/subject/${subjectId}` }]);
     view.innerHTML = `
       <h1 class="page-title">${escapeHtml(subject.name)}</h1>
       <div class="choice-row">
@@ -461,7 +643,7 @@
           <div class="desc">Recorded YouTube lessons, by grade</div>
         </div>
         <div class="choice-tile" id="tile-tutes">
-          <div class="big-label">📄 Tutes</div>
+          <div class="big-label">Tutes</div>
           <div class="desc">PDF, ZIP and other files (up to 5GB each)</div>
         </div>
       </div>
@@ -473,10 +655,10 @@
   async function renderGradeChoice(subjectId) {
     const subjects = await api('/api/subjects');
     const subject = subjects.find((s) => s.id === subjectId);
-    if (!subject) { location.hash = '#/'; return; }
+    if (!subject) { location.hash = '#/lessons'; return; }
     const categories = subject.categories || [];
     setCrumbs([
-      { label: 'Subjects', href: '#/' },
+      { label: 'Subjects', href: '#/lessons' },
       { label: subject.name, href: `#/subject/${subjectId}` },
       { label: 'Grades', href: `#/subject/${subjectId}/grade` },
     ]);
@@ -550,11 +732,11 @@
   async function renderLessons(subjectId, grade) {
     const subjects = await api('/api/subjects');
     const subject = subjects.find((s) => s.id === subjectId);
-    if (!subject) { location.hash = '#/'; return; }
+    if (!subject) { location.hash = '#/lessons'; return; }
     const category = (subject.categories || []).find((c) => c.id === grade);
     const categoryName = category ? category.name : grade;
     setCrumbs([
-      { label: 'Subjects', href: '#/' },
+      { label: 'Subjects', href: '#/lessons' },
       { label: subject.name, href: `#/subject/${subjectId}` },
       { label: 'Grades', href: `#/subject/${subjectId}/grade` },
       { label: categoryName, href: `#/subject/${subjectId}/grade/${grade}` },
@@ -670,9 +852,9 @@
   async function renderTutes(subjectId) {
     const subjects = await api('/api/subjects');
     const subject = subjects.find((s) => s.id === subjectId);
-    if (!subject) { location.hash = '#/'; return; }
+    if (!subject) { location.hash = '#/lessons'; return; }
     setCrumbs([
-      { label: 'Subjects', href: '#/' },
+      { label: 'Subjects', href: '#/lessons' },
       { label: subject.name, href: `#/subject/${subjectId}` },
       { label: 'Tutes', href: `#/subject/${subjectId}/tutes` },
     ]);

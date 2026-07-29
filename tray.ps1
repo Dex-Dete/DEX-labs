@@ -32,6 +32,38 @@ try {
   [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 } catch {}
 
+# ---------- v1.2.0: singleton enforcement ----------
+# A named Mutex is an OS-level ATOMIC check - unlike killing "other"
+# tray.ps1 processes AFTER already starting (which
+# Clear-DuplicateTrayInstances, further down, still also does as a
+# defensive backstop), acquiring a Mutex can never race: if two launches
+# happen at almost the exact same moment (e.g. the Startup-folder
+# shortcut firing at login at the same time someone double-clicks the
+# Desktop icon - which, before this, would bypass clear-port.bat's own
+# dupe-killing entirely, since both of those shortcuts point straight at
+# run-hidden.vbs), exactly one of them gets the Mutex and the other
+# exits immediately, before touching the server, the tray icon, or
+# anything else the first instance might already have running (an
+# in-progress study session, a running timer, an in-flight AirDrop
+# transfer, etc). This is what "if more than one copy of DEX Labs is
+# open, close the extra one" means in practice - the ALREADY-running
+# instance is never the one that gets touched; only a brand new,
+# redundant launch attempt backs off, silently (no console, no popup -
+# consistent with this script never showing its own window, per the
+# "Architecture note" at the top of this file).
+try {
+  $MutexCreatedNew = $false
+  $SingletonMutex = [System.Threading.Mutex]::new($true, "DexLabsTraySingleton", [ref]$MutexCreatedNew)
+  if (-not $MutexCreatedNew) {
+    exit 0
+  }
+} catch {
+  # If the check itself fails for some unexpected reason, don't let that
+  # stop DEX Labs from starting - worst case this one safety net is
+  # skipped this one time; Clear-DuplicateTrayInstances below still runs
+  # regardless, as a backstop.
+}
+
 # ---------- auto-update source (GitHub Releases) ----------
 # Update zips are expected as a .zip asset attached to the latest GitHub
 # Release, with package.json at the zip root (same requirement as the
@@ -758,6 +790,24 @@ function Install-DexUpdateFromDownloadedZip {
     [switch]$RelaunchTray
   )
   Write-DexLog "=== Applying update: -> v$NewVer ==="
+
+  # v1.2.0: one on-demand backup to BOTH configured targets (disk is
+  # mandatory so this always at least does that; Drive only if linked),
+  # in addition to (not instead of) apply-update.ps1's own existing
+  # backups/backup-<timestamp>/ snapshot a few lines down - belt and
+  # suspenders. Has to happen here, before Stop-DexServer, since it's
+  # the still-running server that actually knows how to reach Drive.
+  # Best-effort and never blocks the update: a slow/unreachable Drive
+  # shouldn't hold up installing an update that's otherwise ready to go,
+  # and apply-update.ps1's own snapshot covers this same moment anyway.
+  try {
+    Write-DexLog "Pre-update backup: requesting a fresh disk/Drive backup before stopping the server..."
+    $backupResult = Invoke-RestMethod -Uri "http://localhost:$($script:CurrentPort)/api/backup/run-now" -Method Post -TimeoutSec 25
+    Write-DexLog "Pre-update backup result: disk ok=$($backupResult.disk.ok) drive ok=$($backupResult.drive.ok) skipped=$($backupResult.drive.skipped)"
+  } catch {
+    Write-DexLog "[WARNING] Pre-update backup request failed/timed out (continuing with the update anyway - apply-update.ps1's own backup snapshot still runs next): $_"
+  }
+
   Stop-DexServer
   Stop-DexLandingPage
 
@@ -904,6 +954,14 @@ $menuLandingToggle.Checked = $script:LandingPageEnabledState
 $contextMenu.Items.Add($menuLandingToggle) | Out-Null
 $menuOpenFolder = $contextMenu.Items.Add("Open App Folder")
 $contextMenu.Items.Add("-") | Out-Null
+# v1.3.0: one-time, explicit, user-initiated elevation to register the
+# "proper" Scheduled-Task auto-start (see register-admin-autostart.ps1
+# for the full design rationale/UNTESTED note). Deliberately NOT run
+# automatically at startup or from the watchdog - same "never surprise
+# someone with a UAC prompt they didn't ask for" rule this project
+# already follows for Ensure-DexLandingPageFirewall above.
+$menuAdminAutostart = $contextMenu.Items.Add("Set Up Proper Auto-Start (Admin)...")
+$contextMenu.Items.Add("-") | Out-Null
 $menuVersion = $contextMenu.Items.Add($DisplayLabel)
 $menuVersion.Enabled = $false
 $contextMenu.Items.Add("-") | Out-Null
@@ -927,6 +985,29 @@ $notifyIcon.Add_MouseClick({
 })
 $menuConsole.Add_Click({ Show-DexConsoleViewer })
 $menuOpenFolder.Add_Click({ Open-DexAppFolder })
+# v1.3.0: elevate just this one script (Start-Process -Verb RunAs), the
+# same idiom already used for Ensure-DexLandingPageFirewall - the tray
+# itself keeps running at normal privilege the whole time. Shows the
+# real Windows UAC prompt; if declined, nothing changes (the existing
+# permission-less Startup entry from DEXLABS.bat keeps working as the
+# fallback either way).
+$menuAdminAutostart.Add_Click({
+  try {
+    $scriptPath = Join-Path $AppRoot "register-admin-autostart.ps1"
+    # PROJECT_BRIEFING.md lesson #10: Start-Process -ArgumentList mangles
+    # manually-embedded quotes when the underlying path has a space in
+    # it - and "DEX Labs" itself does. Sidestepping that entirely with
+    # -EncodedCommand (same fix already used elsewhere in this project)
+    # rather than trying to get manual quoting "more correct" - the
+    # base64 payload has no spaces/quotes for ArgumentList to mangle,
+    # no matter what the install path looks like.
+    $psCommand = "& `"$scriptPath`""
+    $encodedCommand = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($psCommand))
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoProfile -ExecutionPolicy Bypass -EncodedCommand $encodedCommand" -Verb RunAs -Wait
+  } catch {
+    Write-DexLog "[WARNING] Admin auto-start setup didn't complete (user may have declined the UAC prompt, or something else went wrong): $_"
+  }
+})
 
 $menuUpdateAuto.Add_Click({
   if ($script:UpdateInProgress) {
@@ -954,6 +1035,21 @@ $menuUpdateAuto.Add_Click({
     return
   }
 
+  # v1.2.0: "no update while studying" (and the other Test-DexSystemIdle
+  # conditions - a running timer, an in-progress upload/download) is now
+  # an absolute rule, not just something the silent background checker
+  # respects - this manual "Check for Updates" menu item used to skip
+  # this check entirely, so clicking it mid-Pomodoro would happily wipe
+  # out the running session. Checked here (before even asking "download
+  # and install?") AND again right before the update is actually applied
+  # below, in case studying starts during the download.
+  $idleCheck = Test-DexSystemIdle
+  if (-not $idleCheck.idle) {
+    [System.Windows.Forms.MessageBox]::Show("v$($info.newVer) is available, but DEX Labs can't update right now: $($idleCheck.reason).`n`nFinish or cancel that first, then try Check for Updates again.", "Can't update yet", 0, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+    Write-DexLog "Manual update: blocked - $($idleCheck.reason)"
+    return
+  }
+
   $confirm = [System.Windows.Forms.MessageBox]::Show(
     "DEX Labs has released v$($info.newVer) - you have v$currentVer, so it's time to update.`n`nDownload and install it now?`n`nYour lessons, tutes, AirDrop files, schedule, timers, and settings will be backed up automatically before anything changes. The server will restart when it's done.",
     "Update available", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question
@@ -973,6 +1069,17 @@ $menuUpdateAuto.Add_Click({
     } catch {
       [System.Windows.Forms.MessageBox]::Show("Could not download the update file.`n`nDetails: $_", "Update failed", 0, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
       Write-DexLog "[ERROR] Manual update download failed: $_"
+      return
+    }
+
+    # Re-check right before actually applying (the download above can
+    # take a while on a slow connection - studying could have started
+    # during that window).
+    $idleCheckAgain = Test-DexSystemIdle
+    if (-not $idleCheckAgain.idle) {
+      try { Remove-Item $downloadPath -Force -ErrorAction SilentlyContinue } catch {}
+      [System.Windows.Forms.MessageBox]::Show("The update downloaded fine, but DEX Labs can't install it right now: $($idleCheckAgain.reason).`n`nTry Check for Updates again once that's done.", "Can't update yet", 0, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+      Write-DexLog "Manual update: blocked right before install - $($idleCheckAgain.reason)"
       return
     }
 
@@ -1041,6 +1148,18 @@ $menuUpdateManual.Add_Click({
     return
   }
 
+  # v1.2.0: same absolute "no update while studying" (or while a
+  # timer/upload/download is active) rule as the other two update paths -
+  # see the matching comment in $menuUpdateAuto.Add_Click above for why
+  # this needs checking explicitly here too rather than just relying on
+  # the silent background checker's own idle check.
+  $idleCheck = Test-DexSystemIdle
+  if (-not $idleCheck.idle) {
+    [System.Windows.Forms.MessageBox]::Show("v$newVer is a valid update file, but DEX Labs can't update right now: $($idleCheck.reason).`n`nFinish or cancel that first, then try again.", "Can't update yet", 0, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+    Write-DexLog "Manual (file) update: blocked - $($idleCheck.reason)"
+    return
+  }
+
   $confirm = [System.Windows.Forms.MessageBox]::Show(
     "Update from v$currentVer to v$newVer?`n`nYour lessons, tutes, AirDrop files, schedule, timers, and settings will be backed up automatically before anything changes. The server will restart when it's done.",
     "Confirm update", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question
@@ -1056,6 +1175,32 @@ $menuUpdateManual.Add_Click({
   $script:UpdateInProgress = $true
   $script:UpdateStartedAt = Get-Date
   try {
+    # Re-check right before actually applying - the confirm dialog above
+    # can sit open indefinitely if the person steps away.
+    $idleCheckAgain = Test-DexSystemIdle
+    if (-not $idleCheckAgain.idle) {
+      [System.Windows.Forms.MessageBox]::Show("DEX Labs can't install this update right now: $($idleCheckAgain.reason).`n`nTry again once that's done.", "Can't update yet", 0, [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null
+      Write-DexLog "Manual (file) update: blocked right before install - $($idleCheckAgain.reason)"
+      return
+    }
+
+    # v1.2.0: same on-demand disk+Drive backup as the shared
+    # Install-DexUpdateFromDownloadedZip function does for the other two
+    # update paths - see the comment there for the full reasoning. This
+    # path doesn't call that shared function (it can't - that function
+    # deletes the zip it's given afterward, which would be wrong here
+    # since this zip is a file the person picked themselves, not a throw-
+    # away download, so this path has always applied updates with its
+    # own inline copy of the stop/apply/start steps instead), so the
+    # same backup trigger needs repeating here rather than being shared.
+    try {
+      Write-DexLog "Pre-update backup: requesting a fresh disk/Drive backup before stopping the server..."
+      $backupResult = Invoke-RestMethod -Uri "http://localhost:$($script:CurrentPort)/api/backup/run-now" -Method Post -TimeoutSec 25
+      Write-DexLog "Pre-update backup result: disk ok=$($backupResult.disk.ok) drive ok=$($backupResult.drive.ok) skipped=$($backupResult.drive.skipped)"
+    } catch {
+      Write-DexLog "[WARNING] Pre-update backup request failed/timed out (continuing with the update anyway): $_"
+    }
+
     Stop-DexServer
     Stop-DexLandingPage
 

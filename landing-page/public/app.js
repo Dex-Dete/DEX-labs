@@ -155,4 +155,81 @@
   // without hammering a TCP-connect check against every saved port
   // constantly.
   pollTimer = setInterval(poll, 5000);
+
+  // ---------------------------------------------------------------
+  // Auto-discovery ("Found on your network"). Fully automatic - no
+  // button. Cycle is: run a scan -> show a 3s/2s/1s countdown to the
+  // next one -> scan again -> repeat, forever, for as long as this page
+  // stays open. A real scan of a typical home /24 subnet has measured
+  // at roughly 3s end to end, so "Scanning…" and the countdown between
+  // scans both land in a similar few-seconds range - see discover.js.
+  // ---------------------------------------------------------------
+  const discoverListEl = document.getElementById('discover-list');
+  const discoverStatusEl = document.getElementById('discover-status');
+  const COUNTDOWN_SECONDS = 3;
+  let discoverTimer = null;
+  let knownSubnet = null; // learned from the first scan's response, reused after
+
+  function faviconImg(site) {
+    // A plain <img> pointed straight at the device's own favicon.ico -
+    // no server-side fetching/caching of the image itself needed, and
+    // it loads exactly the way opening that URL in a tab would. Falls
+    // back to a generic globe icon if the device has none.
+    return `<img class="discover-favicon" src="${site.faviconUrl}" alt=""
+      onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 24 24%27%3E%3Ctext y=%2718%27 font-size=%2718%27%3E%F0%9F%8C%90%3C/text%3E%3C/svg%3E';" />`;
+  }
+
+  function renderDiscovered(sites) {
+    if (!sites || sites.length === 0) {
+      discoverListEl.innerHTML = `<div class="empty-state">Nothing found on your network right now.</div>`;
+      return;
+    }
+    discoverListEl.innerHTML = sites.map((s) => `
+      <a class="site-card discover-card" href="${s.url}" target="_blank" rel="noopener">
+        <div class="site-card-top">
+          ${faviconImg(s)}
+          <span class="site-name">${escapeHtml(s.title)}</span>
+        </div>
+        <span class="site-port">${escapeHtml(s.ip)}:${s.port}${s.isSelf ? ' · this machine' : ''}</span>
+      </a>
+    `).join('');
+  }
+
+  async function runDiscoveryScan() {
+    discoverStatusEl.textContent = 'Scanning…';
+    discoverStatusEl.classList.add('scanning');
+    try {
+      const qs = knownSubnet ? `?subnet=${encodeURIComponent(knownSubnet)}` : '';
+      const result = await api(`/api/discover${qs}`);
+      if (result.error) {
+        discoverListEl.innerHTML = `<div class="empty-state">${escapeHtml(result.error)}</div>`;
+      } else {
+        knownSubnet = result.subnet;
+        renderDiscovered(result.sites);
+      }
+    } catch (e) {
+      discoverListEl.innerHTML = `<div class="empty-state">Could not scan the network: ${escapeHtml(e.message)}</div>`;
+    } finally {
+      discoverStatusEl.classList.remove('scanning');
+      startCountdown();
+    }
+  }
+
+  function startCountdown() {
+    let remaining = COUNTDOWN_SECONDS;
+    discoverStatusEl.textContent = `Next scan in ${remaining}s`;
+    clearTimeout(discoverTimer);
+    const tick = () => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        runDiscoveryScan();
+        return;
+      }
+      discoverStatusEl.textContent = `Next scan in ${remaining}s`;
+      discoverTimer = setTimeout(tick, 1000);
+    };
+    discoverTimer = setTimeout(tick, 1000);
+  }
+
+  runDiscoveryScan();
 })();

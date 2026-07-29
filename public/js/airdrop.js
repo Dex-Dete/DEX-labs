@@ -223,5 +223,7 @@
     }
   }
 
-  window.Airdrop = { render };
+  window.Airdrop = { render, cleanup: stopTimers };
+  window.DexSubsystems = window.DexSubsystems || {};
+  window.DexSubsystems['airdrop'] = { render, cleanup: stopTimers };
 })();

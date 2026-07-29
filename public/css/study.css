@@ -10,6 +10,38 @@
   --study-accent-soft: rgba(75, 63, 143, 0.12);
   --study-slept: #4a6fa5;
   --study-nothing: #9aa2b1;
+  /* v1.3.5: the heatmap's 4 intensity levels are a fixed decorative
+     scale (get progressively deeper purple, same in both themes) - kept
+     separate from --study-accent-dark, which is a *text*-contrast token
+     that intentionally flips lighter in dark mode. Reusing that token
+     for the darkest cell used to make the "most active" day render
+     lighter than levels 2-3 once dark mode flipped it - the opposite of
+     what the gradient is supposed to show. */
+  --study-heat-4: #352b6b;
+  /* v1.2.1: Rec's own accent (warm amber/rust) - visually distinct from
+     Study's indigo so the two tabs/timers read as separate things, and
+     reused as the "Rec" segment color in the Stats split bar below. */
+  --rec-accent: #b5651d;
+  --rec-accent-dark: #8a4a15;
+  --rec-accent-soft: rgba(181, 101, 29, 0.12);
+}
+
+/* v1.3.5: dark-mode variants. --study-accent-dark/--rec-accent-dark are
+   used as TEXT color (subject names, stat values, heatmap's darkest
+   cell) against --card, which flips from light cream to dark navy in
+   dark mode (see style.css's html[data-theme="dark"] block) - the light-
+   mode literals above are deliberately dark for contrast against a
+   light card, which makes them the exact wrong thing to also use
+   against a dark card (near-black on near-black). Lighter/brighter
+   versions of each token here fix that without touching any of the
+   selectors below - they all just read the variable. */
+html[data-theme="dark"] {
+  --study-accent: #8f80e0;
+  --study-accent-dark: #c3b6f5;
+  --study-accent-soft: rgba(143, 128, 224, 0.22);
+  --rec-accent: #e0985a;
+  --rec-accent-dark: #f0b784;
+  --rec-accent-soft: rgba(224, 152, 90, 0.22);
 }
 
 .study-page-sub {
@@ -45,6 +77,28 @@
 }
 .study-tab-btn.active { background: var(--study-accent); color: #fff; }
 
+/* v1.3.3: Stats tab's nested Today/Total sub-tabs - same look, just a
+   touch smaller/tighter since it's a second-level nav sitting directly
+   under the Study/Rec/Stats/Calendar tab strip above it. */
+.study-subtabs {
+  margin: 0 0 18px;
+}
+.study-subtabs .study-tab-btn {
+  padding: 6px 16px;
+  font-size: 0.85rem;
+}
+
+/* v1.2.1: Rec's tab body wraps its content in .study-rec-scope, which
+   locally overrides the same --study-accent* variables every shared
+   component below (.study-subject-card, .study-focus, .study-ring-*,
+   etc.) already reads from - so the Rec tab automatically gets its own
+   warm accent color everywhere, with zero duplicated CSS rules. */
+.study-rec-scope {
+  --study-accent: var(--rec-accent);
+  --study-accent-dark: var(--rec-accent-dark);
+  --study-accent-soft: var(--rec-accent-soft);
+}
+
 /* ---- Subject list ---------------------------------------------------- */
 .study-subjects-grid {
   display: grid;
@@ -57,11 +111,15 @@
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 16px;
+  /* v1.2.0: border-left color is now set inline per-card (see study.js)
+     from the subject's own chart color (custom or automatic-hash) rather
+     than a single fixed accent color for every card - this is also the
+     easiest place to glance at "which color is this subject in the pie
+     chart" without opening Stats. */
   border-left: 4px solid var(--study-accent);
   cursor: pointer;
   position: relative;
 }
-.study-subject-card:hover { border-left-color: var(--study-accent-dark); }
 .study-subject-name {
   font-family: Georgia, serif;
   font-weight: bold;
@@ -90,6 +148,35 @@
 }
 .study-subject-del-btn:hover { color: var(--pen); background: rgba(192, 57, 43, 0.1); }
 
+/* v1.2.0: manual per-subject chart color picker - a small round swatch
+   wrapping a native <input type="color">. The input itself is invisible
+   (opacity:0, exact same size/position as the swatch, stacked on top) so
+   clicking the swatch anywhere opens the browser's native color picker -
+   simplest possible cross-browser way to do this without a custom
+   picker widget/dependency. */
+.study-subject-swatch {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--card);
+  box-shadow: 0 0 0 1.5px var(--margin);
+  cursor: pointer;
+  display: block;
+}
+.study-subject-swatch:hover { box-shadow: 0 0 0 1.5px var(--study-accent-dark); }
+.study-subject-color-input {
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
 /* ---- Method choice (after clicking a subject, before starting) ------- */
 .study-method-panel { display: flex; flex-direction: column; gap: 14px; }
 .study-method-choice { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -99,7 +186,7 @@
   padding: 14px;
   border-radius: var(--radius);
   border: 2px solid var(--margin);
-  background: #fff;
+  background: var(--card);
   cursor: pointer;
   font-weight: 600;
   color: var(--ink);
@@ -173,6 +260,8 @@
   stroke: var(--study-accent);
   stroke-width: 7;
   stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
   transition: stroke-dashoffset 0.4s linear;
 }
 .study-ring-progress.rest { stroke: var(--success); }
@@ -245,23 +334,86 @@
 .study-bar-fill { height: 100%; background: var(--study-accent); border-radius: 6px; }
 .study-bar-value { width: 70px; flex-shrink: 0; font-size: 0.8rem; color: var(--ink-soft); }
 
+/* v1.2.1: Stats' "Study vs Rec, per subject" bar - two color segments
+   sitting side by side in one track (not stacked/overlaid), each sized
+   relative to the same cross-subject max so the combined bar length
+   still reads as "how much total time", split by where it came from.
+   Its value column needs more room than the plain single-number one
+   above ("4h 5m studied · 1h 20m watched" is longer than "4h 5m"). */
+.study-bar-track-split { flex: 1; display: flex; background: var(--paper-line); border-radius: 6px; overflow: hidden; height: 18px; }
+.study-bar-fill-study { height: 100%; background: var(--study-accent); }
+.study-bar-fill-rec { height: 100%; background: var(--rec-accent); }
+.study-bar-row.split .study-bar-value { width: 190px; }
+.study-split-legend { display: flex; gap: 16px; font-size: 0.8rem; color: var(--ink-soft); }
+.study-split-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.study-split-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.study-split-swatch-study { background: var(--study-accent); }
+.study-split-swatch-rec { background: var(--rec-accent); }
+
 .study-daycounts { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 6px; }
 .study-daycount { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
 .study-daycount-dot { width: 12px; height: 12px; border-radius: 50%; }
 
-.study-quicklog { margin-top: 16px; }
-.study-quicklog-buttons { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+/* ---- v1.2.0: "Hours by month" bar chart ------------------------------- */
+.study-monthly-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 160px;
+  padding-top: 8px;
+}
+.study-monthly-bar-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.study-monthly-bar-col.future { opacity: 0.45; }
+.study-monthly-bar-track {
+  flex: 1;
+  width: 100%;
+  max-width: 26px;
+  display: flex;
+  align-items: flex-end;
+  background: var(--study-accent-soft);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.study-monthly-bar-fill {
+  width: 100%;
+  background: var(--study-accent);
+  border-radius: 5px 5px 0 0;
+  min-height: 0;
+  transition: height 0.25s ease;
+}
+.study-monthly-bar-label { font-size: 0.72rem; color: var(--ink-soft); flex-shrink: 0; }
 
 /* ---- Calendar / year heatmap ------------------------------------------*/
 .study-heatmap-scroll { overflow-x: auto; padding-bottom: 6px; }
+/* v1.2.0 fix: the month labels used to sit in their own grid with a
+   14px column pitch (grid-auto-columns:14px, no gap) while the actual
+   day-cell grid just below uses a 13px+3px-gap = 16px pitch
+   (.study-heatmap-grid below). Those two numbers being different meant
+   every column drifted 2px further out of alignment than the last -
+   by the end of the year (~52 columns) the month label was landing
+   roughly 100px away from the column it was supposed to sit above.
+   Fixed by giving both grids the exact same column-track size AND gap,
+   so column N always lines up with column N no matter how far right you
+   scroll. margin-left is likewise set to match .study-heatmap-body's
+   20px daylabels width + 3px flex gap exactly (was 24px, an approximation
+   that happened to be close but not equal). */
 .study-heatmap-months {
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: 14px;
+  grid-auto-columns: 13px;
+  gap: 3px;
   font-size: 0.68rem;
   color: var(--ink-soft);
   margin-bottom: 4px;
-  margin-left: 24px;
+  margin-left: 23px;
 }
 .study-heatmap-body { display: flex; gap: 3px; }
 .study-heatmap-daylabels {
@@ -292,7 +444,7 @@
 .study-heat-cell[data-level="1"] { background: #c9c2e8; }
 .study-heat-cell[data-level="2"] { background: #9a8dd1; }
 .study-heat-cell[data-level="3"] { background: #6c5bb5; }
-.study-heat-cell[data-level="4"] { background: var(--study-accent-dark); }
+.study-heat-cell[data-level="4"] { background: var(--study-heat-4); }
 .study-heat-cell[data-status="slept"] { background: var(--study-slept); }
 .study-heat-cell[data-status="nothing"] { background: var(--study-nothing); }
 

@@ -9,13 +9,30 @@ process.on('unhandledRejection', (err) => {
   console.error('[FATAL] Unhandled promise rejection:', err && err.stack || err);
 });
 
+const fs = require('fs');
 const express = require('express');
 const path = require('path');
 const os = require('os');
 
+// v1.2.0: captured HERE, before any lib/*-store.js is required below -
+// every store in this project auto-creates its own default data/*.json
+// the moment it's require()'d if that file doesn't exist yet (see e.g.
+// lib/config-store.js), so this is the one and only point in the whole
+// process's life where "does data/ actually have anything in it" still
+// means what it sounds like: a truly fresh install, or DEX Labs having
+// been deleted and reinstalled. backup-store.js's maybeRestoreFromDrive()
+// (called after the server is listening, further down) uses this to
+// decide whether pulling a backup down from Google Drive is safe - it's
+// only ever allowed to run once, using the value computed right here.
+const DATA_DIR_FOR_BOOT_CHECK = path.join(__dirname, 'data');
+const dataDirWasEmptyAtBoot = !fs.existsSync(DATA_DIR_FOR_BOOT_CHECK)
+  || fs.readdirSync(DATA_DIR_FOR_BOOT_CHECK).filter((f) => f.endsWith('.json')).length === 0;
+
 const airdropStore = require('./lib/airdrop-store');
 const timersStore = require('./lib/timers-store');
 const ytdownloadStore = require('./lib/ytdownload-store');
+const studyStore = require('./lib/study-store');
+const backupStore = require('./lib/backup-store');
 const config = require('./lib/config-store');
 const VERSION = require('./package.json').version;
 
@@ -108,6 +125,31 @@ try {
 }
 
 try {
+  // v1.3.0: Events tab (lives inside the Clock subsystem's UI, but its
+  // own store/router - see lib/events-store.js). Also feeds Standby
+  // Mode's events section (sbm.js) and the load-once-per-day banner.
+  const eventsRouter = require('./routes/events');
+  app.use('/api/events', eventsRouter);
+  console.log('[OK] Events routes loaded.');
+} catch (err) {
+  console.error('[ERROR] Events routes failed to load - that feature will be unavailable:', err && err.stack || err);
+  app.use('/api/events', (req, res) => res.status(500).json({ error: 'Events failed to start. Check logs.txt.' }));
+}
+
+try {
+  // v1.3.0: Standby Mode support routes (host RAM/CPU stats, hourly
+  // science fact). SBM's own subsystem module (public/js/sbm.js) reads
+  // its live-clock and events data straight from Study's and Events'
+  // existing routes above, not from here - see routes/sbm.js header.
+  const sbmRouter = require('./routes/sbm');
+  app.use('/api/sbm', sbmRouter);
+  console.log('[OK] Standby Mode routes loaded.');
+} catch (err) {
+  console.error('[ERROR] Standby Mode routes failed to load - that feature will be unavailable:', err && err.stack || err);
+  app.use('/api/sbm', (req, res) => res.status(500).json({ error: 'Standby Mode failed to start. Check logs.txt.' }));
+}
+
+try {
   const settingsRouter = require('./routes/settings');
   app.use('/api/settings', settingsRouter);
   console.log('[OK] Settings/update-notice routes loaded.');
@@ -136,6 +178,18 @@ try {
 } catch (err) {
   console.error('[ERROR] YouTube Downloader routes failed to load - that feature will be unavailable:', err && err.stack || err);
   app.use('/api/ytdownload', (req, res) => res.status(500).json({ error: 'YouTube Downloader failed to start. Check logs.txt.' }));
+}
+
+try {
+  // v1.2.0 - disk + Google Drive backup. Not a "subsystem" with its own
+  // nav tab (see lib/subsystems-registry.js) - it's configured from the
+  // Settings page, same as AirDrop's settings.
+  const backupRouter = require('./routes/backup');
+  app.use('/api/backup', backupRouter);
+  console.log('[OK] Backup routes loaded.');
+} catch (err) {
+  console.error('[ERROR] Backup routes failed to load - that feature will be unavailable:', err && err.stack || err);
+  app.use('/api/backup', (req, res) => res.status(500).json({ error: 'Backup failed to start. Check logs.txt.' }));
 }
 
 // ---------- misc ----------
@@ -175,16 +229,44 @@ app.get('/api/busy', async (req, res) => {
   } catch (e) {
     console.error('[busy-status] could not read YouTube Downloader state:', e && e.message);
   }
+  // v1.2.0: "no update while studying" - a study session (Stopwatch or
+  // Pomodoro) currently running/paused-but-active counts as busy, same
+  // as an in-progress timer. tray.ps1's Test-DexSystemIdle already just
+  // forwards whatever this endpoint says, so adding the signal here is
+  // the only change needed to make every update path (background timer,
+  // both interactive "Update" menu items) respect it.
+  let studying = false;
+  try {
+    const active = await studyStore.getActive();
+    studying = !!active;
+  } catch (e) {
+    console.error('[busy-status] could not read Study state:', e && e.message);
+  }
+  // v1.2.1: same "don't interrupt mid-session" treatment for Rec (timing
+  // a recorded lecture/video) as Study already gets above - an active
+  // Rec timer is just as much a foreground activity as an active Study
+  // session, so it should equally block an auto-update. Independent
+  // check/flag (not folded into `studying`) since they're genuinely
+  // separate sessions - see lib/study-store.js's header comment.
+  let recording = false;
+  try {
+    const activeRec = await studyStore.getRecActive();
+    recording = !!activeRec;
+  } catch (e) {
+    console.error('[busy-status] could not read Rec state:', e && e.message);
+  }
   const reasons = [];
   if (activeUploads > 0) reasons.push(`${activeUploads} file upload${activeUploads === 1 ? '' : 's'} in progress`);
   if (timersActive > 0) reasons.push(`${timersActive} timer${timersActive === 1 ? '' : 's'} running or ringing`);
   if (downloadsActive > 0) reasons.push(`${downloadsActive} YouTube download${downloadsActive === 1 ? '' : 's'} in progress`);
-  res.json({ busy: reasons.length > 0, activeUploads, timersActive, downloadsActive, reasons });
+  if (studying) reasons.push('a study session is in progress');
+  if (recording) reasons.push('a Rec timer is in progress');
+  res.json({ busy: reasons.length > 0, activeUploads, timersActive, downloadsActive, studying, recording, reasons });
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`DEX Labs v${VERSION} running: http://localhost:${PORT}`);
-  console.log(`  Subsystems: Lesson Tracker, AirDrop, Daily Schedule, Clock, YouTube Downloader, Study`);
+  console.log(`  Subsystems: Lesson Tracker, AirDrop, Daily Schedule, Clock, YouTube Downloader, Study, Backup`);
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
     for (const net of nets[name]) {
@@ -193,6 +275,23 @@ const server = app.listen(PORT, '0.0.0.0', () => {
       }
     }
   }
+
+  // v1.2.0: restore-from-Drive check, using the "was data/ empty"
+  // snapshot taken at the very top of this file (before any store could
+  // auto-create its own default file). Runs once, after the server is
+  // already listening, so it doesn't delay the port coming up - a fresh
+  // install/reinstall restoring from Drive is a nice-to-have speed-up,
+  // not something worth making the person wait on before the site loads
+  // at all. No-ops instantly (and harmlessly) if Drive isn't linked or
+  // local data already exists - see maybeRestoreFromDrive()'s own
+  // comment in lib/backup-store.js for the full reasoning.
+  backupStore.maybeRestoreFromDrive(dataDirWasEmptyAtBoot)
+    .then((result) => {
+      if (result && result.ok && result.filesRestored > 0) {
+        console.log(`[backup] Restored ${result.filesRestored} data file(s) from Google Drive (fresh install/reinstall detected).`);
+      }
+    })
+    .catch((e) => console.error('[backup] Startup Drive restore check failed:', e && e.message));
 });
 
 server.on('error', (err) => {
@@ -235,3 +334,21 @@ setInterval(() => {
 setInterval(() => {
   ytdownloadStore.cleanupOldFiles().catch((e) => console.error('[ytdownload] cleanup error:', e));
 }, 60 * 60 * 1000).unref();
+
+// v1.2.0: disk backup every 3 minutes, Google Drive backup every 30 -
+// both are safe, cheap no-ops when not configured/linked (see
+// lib/backup-store.js), so these timers can just always run rather than
+// needing to know here whether either target is actually set up. Also
+// run each once immediately at startup (same "don't make the person
+// wait a full cycle to find out it works" reasoning as AirDrop's cleanup
+// and the YouTube Downloader's tool setup above) - harmless if nothing
+// is configured yet.
+backupStore.runDiskBackup().catch((e) => console.error('[backup] initial disk backup error:', e && e.message));
+setInterval(() => {
+  backupStore.runDiskBackup().catch((e) => console.error('[backup] disk backup error:', e && e.message));
+}, 3 * 60 * 1000).unref();
+
+backupStore.runDriveBackup().catch((e) => console.error('[backup] initial Drive backup error:', e && e.message));
+setInterval(() => {
+  backupStore.runDriveBackup().catch((e) => console.error('[backup] Drive backup error:', e && e.message));
+}, 30 * 60 * 1000).unref();

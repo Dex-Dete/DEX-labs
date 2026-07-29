@@ -6,6 +6,22 @@ const path = require('path');
 
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 
+// v1.2.0 fix: every OTHER store in this project (config-store.js,
+// study-store.js, etc.) auto-creates its own default data file the
+// moment it's required, if that file doesn't exist yet - this is the
+// one exception that never had that guard, so a genuinely fresh
+// install (an empty/missing data/ folder) 500'd on the very first
+// Lesson Tracker request (`data.subjects` doesn't exist to read/loop
+// over). Found while testing v1.2.0's fresh-install/restore-from-Drive
+// path, which made "does a truly empty data/ folder work correctly"
+// something worth actually checking end to end for the first time.
+// Not something that touches the read/write/update logic below at all -
+// purely "make sure the file exists with a sane empty shape before
+// anything tries to read it."
+const DATA_DIR = path.join(__dirname, 'data');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+if (!fs.existsSync(DB_PATH)) fs.writeFileSync(DB_PATH, JSON.stringify({ subjects: [] }, null, 2), 'utf-8');
+
 let writeQueue = Promise.resolve();
 
 function read() {

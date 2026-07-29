@@ -50,6 +50,7 @@ const path = require('path');
 const net = require('net');
 const { URL } = require('url');
 const sitesStore = require('./lib/sites-store');
+const discover = require('./lib/discover');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const OWN_CONFIG_PATH = path.join(__dirname, 'data', 'landing-config.json');
@@ -154,6 +155,18 @@ const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = url.pathname;
+
+    // Runs one full LAN scan pass and returns whatever's currently
+    // reachable. Deliberately synchronous-per-request rather than a
+    // server-side background loop with caching - the frontend itself
+    // drives the every-few-seconds cadence (see public/app.js), and a
+    // single scan of a typical home /24 takes on the order of a few
+    // seconds, so there's no real benefit to caching here and it keeps
+    // this endpoint simple and always-fresh.
+    if (pathname === '/api/discover' && req.method === 'GET') {
+      const result = await discover.scanNetwork(url.searchParams.get('subnet') || undefined);
+      return sendJson(res, 200, result);
+    }
 
     // ---- API ----
     if (pathname === '/api/sites' && req.method === 'GET') {

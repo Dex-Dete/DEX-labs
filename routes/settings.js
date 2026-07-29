@@ -32,6 +32,125 @@ function publicSettings() {
   };
 }
 
+// ---------------- Theme (v1.3.0 - global dark/light mode) ----------------
+// One shared theme state in config.json, same model as every other
+// setting in this file (hiddenSubsystems, defaultLandingSubsystem, etc.)
+// - this app is a single personal server, so "global across my devices"
+// is the existing convention, not a new one. The events banner (see
+// routes/events.js) is the one place that's deliberately per-device
+// instead, because the brief specifically asked for that.
+//
+// themeMode is 'auto' | 'dark' | 'light'. Manually toggling sets it to
+// 'dark'/'light' and starts a 24h hold (themeOverrideUntil). Auto mode
+// resumes on its own once the hold expires - checked lazily here (no
+// background timer/cron needed) and written back to config.json so the
+// stored state doesn't drift from what's actually being served.
+function resolveTheme() {
+  const cfg = config.get();
+  let mode = cfg.themeMode || 'auto';
+  let overrideUntil = cfg.themeOverrideUntil || null;
+
+  if (mode !== 'auto' && overrideUntil && Date.now() > overrideUntil) {
+    // Hold expired - fall back to auto and persist that.
+    mode = 'auto';
+    overrideUntil = null;
+    config.set({ themeMode: 'auto', themeOverrideUntil: null });
+  }
+
+  const startHour = Number.isInteger(cfg.themeDarkStartHour) ? cfg.themeDarkStartHour : 19;
+  const endHour = Number.isInteger(cfg.themeDarkEndHour) ? cfg.themeDarkEndHour : 7;
+
+  let effective;
+  if (mode === 'dark' || mode === 'light') {
+    effective = mode;
+  } else {
+    const hour = new Date().getHours();
+    let isDark;
+    if (startHour === endHour) isDark = false;
+    else if (startHour < endHour) isDark = hour >= startHour && hour < endHour;
+    else isDark = hour >= startHour || hour < endHour; // wraps past midnight
+    effective = isDark ? 'dark' : 'light';
+  }
+
+  return { mode, effective, overrideUntil, startHour, endHour };
+}
+
+router.get('/theme', (req, res) => {
+  res.json(resolveTheme());
+});
+
+router.put('/theme', (req, res) => {
+  const { mode, darkStartHour, darkEndHour } = req.body || {};
+  const patch = {};
+
+  if (mode !== undefined) {
+    if (mode === 'dark' || mode === 'light') {
+      patch.themeMode = mode;
+      patch.themeOverrideUntil = Date.now() + 24 * 60 * 60 * 1000;
+    } else if (mode === 'auto') {
+      patch.themeMode = 'auto';
+      patch.themeOverrideUntil = null;
+    } else {
+      return res.status(400).json({ error: "mode must be 'dark', 'light', or 'auto'." });
+    }
+  }
+
+  if (darkStartHour !== undefined) {
+    const h = Number(darkStartHour);
+    if (!Number.isInteger(h) || h < 0 || h > 23) return res.status(400).json({ error: 'darkStartHour must be an integer 0-23.' });
+    patch.themeDarkStartHour = h;
+  }
+  if (darkEndHour !== undefined) {
+    const h = Number(darkEndHour);
+    if (!Number.isInteger(h) || h < 0 || h > 23) return res.status(400).json({ error: 'darkEndHour must be an integer 0-23.' });
+    patch.themeDarkEndHour = h;
+  }
+
+  config.set(patch);
+  res.json(resolveTheme());
+});
+
+// ---------------- Standby Mode (SBM) settings ----------------
+function publicSbmSettings() {
+  const cfg = config.get();
+  return {
+    sbmStatsEnabled: cfg.sbmStatsEnabled !== false,
+    sbmClockFormat: cfg.sbmClockFormat === '12' ? '12' : '24',
+    sbmUltraGraphics: !!cfg.sbmUltraGraphics,
+    sbmCreatureEnabled: cfg.sbmCreatureEnabled !== false,
+    sbmCreatureSize: Number.isFinite(cfg.sbmCreatureSize) ? cfg.sbmCreatureSize : 5,
+  };
+}
+
+router.get('/sbm', (req, res) => {
+  res.json(publicSbmSettings());
+});
+
+router.put('/sbm', (req, res) => {
+  const { sbmStatsEnabled, sbmClockFormat, sbmUltraGraphics, sbmCreatureEnabled, sbmCreatureSize } = req.body || {};
+  const patch = {};
+
+  if (sbmStatsEnabled !== undefined) patch.sbmStatsEnabled = !!sbmStatsEnabled;
+  if (sbmUltraGraphics !== undefined) patch.sbmUltraGraphics = !!sbmUltraGraphics;
+  if (sbmCreatureEnabled !== undefined) patch.sbmCreatureEnabled = !!sbmCreatureEnabled;
+
+  if (sbmClockFormat !== undefined) {
+    if (sbmClockFormat !== '12' && sbmClockFormat !== '24') {
+      return res.status(400).json({ error: "sbmClockFormat must be '12' or '24'." });
+    }
+    patch.sbmClockFormat = sbmClockFormat;
+  }
+
+  if (sbmCreatureSize !== undefined) {
+    const n = Number(sbmCreatureSize);
+    if (!Number.isFinite(n) || n < 1 || n > 10) return res.status(400).json({ error: 'sbmCreatureSize must be a number 1-10.' });
+    patch.sbmCreatureSize = n;
+  }
+
+  config.set(patch);
+  res.json(publicSbmSettings());
+});
+
 router.get('/', (req, res) => {
   res.json(publicSettings());
 });
