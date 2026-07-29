@@ -18,14 +18,18 @@ git push origin main --tags
 ```
 
 ## 4. Create the release zip
-Zip the project root CONTENTS (not the folder itself) so `package.json` is at zip root:
+Zip the project root CONTENTS (not the folder itself) so `package.json` is at zip root. Use the naming format `DEX-Labs-vX_Y_Z.zip` (underscores, capital DEX). Exclude user data dirs but include empty placeholder dirs:
 ```powershell
-$items = Get-ChildItem -Path . -Exclude '.git','node_modules','backups','logs.txt'
-$tempDir = "$env:TEMP\dex-labs-vX.Y.Z"
+$items = Get-ChildItem -Path . -Exclude '.git','node_modules','backups','data','uploads','uploads-airdrop','downloads-youtube','logs.txt'
+$tempDir = "$env:TEMP\dex-labs-vX_Y_Z"
 Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
 foreach ($item in $items) { Copy-Item -Recurse -Path $item.FullName -Destination "$tempDir\$($item.Name)" }
-Compress-Archive -Path "$tempDir\*" -DestinationPath "dex-labs-vX.Y.Z.zip" -Force
+# Create empty placeholder dirs (matching previous release format)
+New-Item -ItemType Directory -Path "$tempDir\uploads" -Force | Out-Null
+New-Item -ItemType Directory -Path "$tempDir\uploads-airdrop" -Force | Out-Null
+New-Item -ItemType Directory -Path "$tempDir\downloads-youtube" -Force | Out-Null
+Compress-Archive -Path "$tempDir\*" -DestinationPath "DEX-Labs-vX_Y_Z.zip" -Force
 Remove-Item -Recurse -Force $tempDir
 ```
 
@@ -34,7 +38,11 @@ Get the token from git credential manager and use the GitHub API:
 ```powershell
 "protocol=https`nhost=github.com`n" | git credential fill
 ```
-Then create the release via API and upload the zip as an asset.
+Then create the release via API and upload the zip as an asset. Use content-type `application/x-zip-compressed`:
+```powershell
+$uploadUrl = "https://uploads.github.com/repos/Dex-Dete/DEX-labs/releases/<RELEASE_ID>/assets?name=DEX-Labs-vX_Y_Z.zip"
+Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -InFile "DEX-Labs-vX_Y_Z.zip" -ContentType "application/x-zip-compressed"
+```
 
 ## 6. Clean up
 Delete the local zip file after uploading.
