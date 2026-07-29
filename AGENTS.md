@@ -1,6 +1,9 @@
-# Release process (for AI sessions)
+# Release process (for AI sessions) — MANDATORY, TOP PRIORITY
 
-Every time a change is made to this project, follow this process:
+Every time a change is made to this project — whether a bug fix, new feature, or
+anything else — follow this process automatically, without being asked. This is
+the #1 priority. Do the feature work first, then immediately run the full
+release process below.
 
 ## 1. Bump the version
 Update `version` in both `package.json` and `package-lock.json`.
@@ -40,7 +43,11 @@ Get the token from git credential manager and use the GitHub API:
 ```
 Then create the release via API and upload the zip as an asset. Use content-type `application/x-zip-compressed`:
 ```powershell
-$uploadUrl = "https://uploads.github.com/repos/Dex-Dete/DEX-labs/releases/<RELEASE_ID>/assets?name=DEX-Labs-vX_Y_Z.zip"
+$headers = @{ Authorization = "Bearer $token"; Accept = "application/vnd.github+json" }
+$body = @{ tag_name = "vX.Y.Z"; name = "DEX Labs vX.Y.Z"; body = "<release notes from CHANGES.md>" } | ConvertTo-Json
+$release = Invoke-RestMethod -Uri "https://api.github.com/repos/Dex-Dete/DEX-labs/releases" -Method Post -Headers $headers -Body $body -ContentType "application/json"
+$uploadUrl = "https://uploads.github.com/repos/Dex-Dete/DEX-labs/releases/$($release.id)/assets?name=DEX-Labs-vX_Y_Z.zip"
+$headers.ContentType = "application/x-zip-compressed"
 Invoke-RestMethod -Uri $uploadUrl -Method Post -Headers $headers -InFile "DEX-Labs-vX_Y_Z.zip" -ContentType "application/x-zip-compressed"
 ```
 
