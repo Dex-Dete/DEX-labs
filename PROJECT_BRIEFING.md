@@ -619,6 +619,35 @@ landing-page/                  the Landing Page - own Node process, own
   back to the user - they already have it. If something is genuinely
   ambiguous, ask; otherwise just ship the diff.
 
+## v1.3.8 (for future sessions)
+
+User-requested animation polish. Short version + rules for future work:
+
+1. **Study tab switches animate the tab CONTENT, not just the shell.**
+   The bug: v1.3.7's `.dex-view-anim` only faded `#view` during the async
+   "Loading…" placeholder, so real content popped in statically. Fix: a
+   `retriggerTabAnim()` helper in `public/js/study.js` re-triggers
+   `.study-tab-anim` (defined in `study.css`, same fade+rise keyframes as
+   the view anim) on `#study-tab-body` AFTER async content renders.
+   `render()` is now async and awaits each tab renderer before re-triggering;
+   the async sub-renders (Stats Today/Total, filter toggle, details toggle,
+   Calendar day panel) call it themselves.
+2. **Polls must NEVER call `retriggerTabAnim()`.** The 1s focus polls
+   (`pollFocus`/`pollRecFocus`/`pollPaperFocus`) re-render the tab body and
+   would re-fade a running timer every second. The helper is only invoked
+   from user-driven render paths. If you add animation to any Study view in
+   the future, keep this line — animation on content load, not on poll tick.
+3. **Shared easing token.** Both `.dex-view-anim` (style.css) and
+   `.study-tab-anim` (study.css) use `cubic-bezier(0.22, 1, 0.36, 1)` at
+   0.3–0.32s. New transitions elsewhere should reuse this curve for a
+   consistent feel, and must be disabled under `prefers-reduced-motion`
+   (both already are).
+4. **`app.js` `dispatch()` now animates `#view` only when the active
+   subsystem actually changes** (`subsystemChanged`), not on every
+   in-subsystem tab click — those are handled by the tab-body anim instead.
+   Keep that separation; don't revert to animating `#view` on every
+   `dispatch()`.
+
 ## v1.3.7 (for future sessions)
 
 Full writeup in CHANGES.md's v1.3.7 section. Short version + rules for

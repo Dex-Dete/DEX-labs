@@ -744,13 +744,15 @@ input[type="text"]:focus, input[type="url"]:focus {
 }
 
 /* v1.3.7: subsystem-switch transition. app.js re-triggers this class on
-   #view every time a different subsystem renders (see dispatch() in
-   app.js) - a quick fade + slight rise so switching tabs feels like a
-   deliberate transition rather than an instant text swap. Off entirely
-   under prefers-reduced-motion above. */
-.dex-view-anim { animation: dex-view-enter 0.28s ease; }
+   #view only when the active SUBSYSTEM actually changes (not on every
+   in-subsystem tab click - see dispatch() in app.js): a fade + slight
+   rise with a springy ease-out so switching subsystems feels like a
+   deliberate transition rather than an instant text swap. The smooth
+   cubic-bezier (overshoot-y easing with no bounce) keeps it quick but
+   not jarring. Off entirely under prefers-reduced-motion above. */
+.dex-view-anim { animation: dex-view-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
 @keyframes dex-view-enter {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: none; }
 }
 

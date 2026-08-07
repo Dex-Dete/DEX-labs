@@ -1108,6 +1108,7 @@
       <div class="study-page-sub">${todayStr}</div>
       ${buildDayStatsHtml(day, 'today')}
     `;
+    retriggerTabAnim();
   }
 
   // "Total" sub-view: the original (pre-v1.3.3) Stats tab, unchanged -
@@ -1157,6 +1158,7 @@
     `;
     document.getElementById('study-stats-prev-year').addEventListener('click', () => { statsYear--; renderStatsTotalBody(); });
     document.getElementById('study-stats-next-year').addEventListener('click', () => { statsYear++; renderStatsTotalBody(); });
+    retriggerTabAnim();
   }
 
   // ================= CALENDAR tab (year heatmap) =================
@@ -1298,6 +1300,7 @@
         ${buildDayStatsHtml(day, `on ${date}`)}
       </div>
     `;
+    retriggerTabAnim();
   }
 
   // v1.3.7: delegated click handling for the global Study/Rec/Paper chart
@@ -1337,15 +1340,31 @@
 
   // ---------------- Entry point ----------------
 
-  function render(subview) {
+  // v1.3.7: re-trigger the tab-body entrance animation (.study-tab-anim
+  // in study.css) on the CONTENT container after a tab has finished
+  // rendering. Called only at the end of a tab switch (never from the
+  // 1s focus polls, which would make a running timer re-fade every
+  // second) so the actual content fades/slides in instead of popping in
+  // statically. Removing the class, forcing a reflow, then re-adding it
+  // guarantees the animation runs even if one just finished.
+  function retriggerTabAnim() {
+    const body = document.getElementById('study-tab-body');
+    if (!body) return;
+    body.classList.remove('study-tab-anim');
+    void body.offsetWidth;
+    body.classList.add('study-tab-anim');
+  }
+
+  async function render(subview) {
     if (pollTimer) clearInterval(pollTimer);
     const tab = TABS.some((t) => t.id === subview) ? subview : 'study';
     renderShell(tab);
-    if (tab === 'study') return renderStudyTab();
-    if (tab === 'rec') return renderRecTab();
-    if (tab === 'paper') return renderPaperTab();
-    if (tab === 'stats') return renderStatsTab();
-    if (tab === 'calendar') return renderCalendarTab();
+    if (tab === 'study') await renderStudyTab();
+    else if (tab === 'rec') await renderRecTab();
+    else if (tab === 'paper') await renderPaperTab();
+    else if (tab === 'stats') await renderStatsTab();
+    else if (tab === 'calendar') await renderCalendarTab();
+    retriggerTabAnim();
   }
 
   function cleanup() {

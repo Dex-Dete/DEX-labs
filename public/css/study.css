@@ -563,6 +563,22 @@ html[data-theme="dark"] {
 }
 .study-daylog-panel-title { font-weight: bold; margin-bottom: 8px; }
 
+/* v1.3.7: in-tab content transition. study.js re-triggers this class on
+   the tab-body container AFTER each tab's async content has finished
+   loading (see retriggerTabAnim() in study.js), so the actual content
+   fades/slides in smoothly instead of popping in statically under the
+   old #view-only animation (which finished during the "Loading…" state).
+   Deliberately NOT triggered by the 1s focus polls - only on tab
+   switches - so a running timer never re-animates every tick. */
+.study-tab-anim { animation: study-tab-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes study-tab-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .study-tab-anim { animation: none; }
+}
+
 @media (max-width: 640px) {
   .study-ring-wrap { width: 180px; height: 180px; }
   .study-bar-label { width: 80px; font-size: 0.78rem; }

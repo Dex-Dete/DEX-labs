@@ -1,3 +1,32 @@
+# DEX Labs v1.3.8 - Changes
+
+User-requested animation polish, all in the Study subsystem plus the shared
+subsystem-switch transition:
+
+**1. Tab switches inside Study actually animate now.** The v1.3.7 "fade-in
+on switch" was only animating the `#view` container while the tab showed its
+"Loading…" placeholder — by the time a tab's real content loaded (all Study
+tabs fetch their data async), the 0.28s animation had already finished, so
+the content popped in statically and the switch still felt like a page
+refresh. Now the tab body itself (`#study-tab-body`) gets a re-triggered
+`.study-tab-anim` fade+rise that fires *after* the async content lands, so
+switching Study/Rec/Paper/Stats/Calendar reads as a smooth deliberate
+transition. The same applies to sub-switches that fetch content: Stats'
+Today/Total toggle, the Study/Rec/Paper filter toggles, the "Hours by
+month" details toggle, and clicking a Calendar day.
+
+**2. Deliberately NOT animated on the 1-second focus polls.** A running
+timer's elapsed-time refresh re-renders the tab body every second; the
+entrance animation is only triggered on user-driven switches (and after
+each sub-switch's content loads), so a live session never flickers/re-fades
+on every tick.
+
+**3. Smoother easing everywhere.** The subsystem-switch transition and the
+new tab-body transition both use a springy cubic-bezier ease-out
+(`cubic-bezier(0.22, 1, 0.36, 1)`, 0.3–0.32s, 6–8px rise) instead of plain
+`ease` — quick but not jarring. Both are still disabled entirely under
+`prefers-reduced-motion`.
+
 # DEX Labs v1.3.7 - Changes
 
 Ten user-requested changes, almost all of them in the Study subsystem:

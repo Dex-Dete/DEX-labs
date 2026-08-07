@@ -516,17 +516,24 @@
       // that's the zero-app.js-edits path future subsystems use (see
       // lib/subsystems-registry.js).
       function dispatch(id) {
-        if (activeSubsystemId && activeSubsystemId !== id) stopSubsystemPolling(activeSubsystemId);
+        const subsystemChanged = id !== activeSubsystemId;
+        if (activeSubsystemId && subsystemChanged) stopSubsystemPolling(activeSubsystemId);
         activeSubsystemId = id;
         window.setSubsystem(id);
-        // v1.3.7: retrigger the fade-in animation on #view whenever the
-        // subsystem changes (see .dex-view-anim in style.css) - removing
-        // the class, forcing a reflow, then re-adding it guarantees the
-        // animation runs even if the previous one just finished.
-        const viewEl = document.getElementById('view');
-        viewEl.classList.remove('dex-view-anim');
-        void viewEl.offsetWidth;
-        viewEl.classList.add('dex-view-anim');
+        // v1.3.7: retrigger the fade-in animation on #view ONLY when the
+        // active subsystem actually changes (see .dex-view-anim in
+        // style.css) - removing the class, forcing a reflow, then
+        // re-adding it guarantees the animation runs even if the
+        // previous one just finished. In-subsystem tab clicks (Study's
+        // Study/Rec/Paper/Stats/Calendar, Clock's Timer/Alarm/etc.) keep
+        // id unchanged, so they skip this and instead animate their tab
+        // body content directly (see .study-tab-anim in study.css).
+        if (subsystemChanged) {
+          const viewEl = document.getElementById('view');
+          viewEl.classList.remove('dex-view-anim');
+          void viewEl.offsetWidth;
+          viewEl.classList.add('dex-view-anim');
+        }
         if (id === 'lessons') return renderSubjects();
         if (id === 'airdrop') return window.Airdrop.render();
         if (id === 'schedule') return window.Schedule.render();
