@@ -34,6 +34,52 @@
   // the original year-scoped stats page, unchanged; "Today" is the same
   // page shape scoped to just today (see buildDayStatsHtml() below).
   let statsSubTab = 'total';
+  // v1.3.7: whether "Hours by month"'s per-subject detail list is open
+  // (its toggle button re-renders the Stats Total body).
+  let monthlyDetailsOpen = false;
+  // v1.3.7: which kinds of tracked time (Study/Rec/Paper) show in the
+  // "Time by subject" pie + per-subject bars. GLOBAL + persisted forever
+  // until changed again (explicit user requirement) - lives in
+  // config.json via GET/PUT /api/settings/study-chart-filters, so it
+  // survives reloads and applies everywhere (Stats Total, Stats Today,
+  // Calendar day panel). This local copy is just the cache for rendering;
+  // every toggle writes through to the server.
+  let chartFilters = { study: true, rec: true, paper: true };
+  let chartFiltersLoaded = false;
+
+  async function loadChartFilters() {
+    if (chartFiltersLoaded) return;
+    try {
+      const f = await api('/api/settings/study-chart-filters');
+      chartFilters = { study: f.study !== false, rec: f.rec !== false, paper: f.paper !== false };
+    } catch (e) { /* offline-tolerant - keep defaults */ }
+    chartFiltersLoaded = true;
+  }
+
+  // v1.3.7: the three filterable kinds of tracked time, in display order.
+  // `actionWord` is what a per-subject bar's value column says for that
+  // kind ("4h 5m studied · 1h 20m watched · 45m on paper").
+  const CHART_KINDS = [
+    { key: 'study', label: 'Study', actionWord: 'studied' },
+    { key: 'rec', label: 'Rec', actionWord: 'watched' },
+    { key: 'paper', label: 'Paper', actionWord: 'on paper' },
+  ];
+  function msOfKind(row, kind) {
+    return kind === 'study' ? (row.studyMs || 0) : kind === 'rec' ? (row.recMs || 0) : (row.paperMs || 0);
+  }
+
+  // v1.3.7: the three Study/Rec/Paper toggle buttons next to the "Time by
+  // subject" heading - global + persisted (see loadChartFilters above).
+  function buildChartFilterRow() {
+    return `
+      <div class="study-filter-row">
+        <span class="study-filter-label">Show:</span>
+        ${CHART_KINDS.map((k) => `
+          <button class="study-filter-btn ${chartFilters[k.key] ? 'on' : 'off'}" data-kind="${k.key}" title="Toggle ${k.label} in the pie and bars">${k.label}</button>
+        `).join('')}
+      </div>
+    `;
+  }
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({
@@ -69,7 +115,7 @@
   // mm:ss / h:mm:ss counting either up (stopwatch/elapsed) or down
   // (Pomodoro phase remaining) - same digits either way.
   function fmtClock(ms) {
-    const totalSec = Math.max(0, Math.round(ms / 1000));
+    const totalSec = Math.max(0, Math.floor(ms / 1000));
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
@@ -128,6 +174,34 @@
     return subj.color || hashColor(id);
   }
 
+  // v1.3.7: "#rrggbb" -> "rgba(r,g,b,a)". Used by the Calendar heatmap to
+  // scale a day's dominant-subject color by how much total time that day
+  // actually had (see renderCalendarTab) - a 10-minute day shows a faint
+  // tint of the subject's color, a 5-hour day shows it at full strength,
+  // instead of both being indistinguishable solid squares.
+  function hexToRgba(hex, alpha) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    const r = (n >> 16) & 255;
+    const g = (n >> 8) & 255;
+    const b = n & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  // v1.3.7: how strongly a Calendar heatmap cell shows its dominant
+  // subject's color, as a function of that day's TOTAL tracked minutes
+  // (Study + Rec + Paper). Same fixed thresholds as the server's
+  // levelForMinutes() so a faint tint always means "a little time" and
+  // full color always means "hours".
+  function alphaForMinutes(totalMinutes) {
+    if (totalMinutes <= 0) return 0;
+    if (totalMinutes < 30) return 0.25;
+    if (totalMinutes < 60) return 0.45;
+    if (totalMinutes < 120) return 0.7;
+    return 1;
+  }
+
   // Local (browser) calendar date as YYYY-MM-DD - mirrors
   // lib/study-store.js's localDateStr() on the server exactly (local
   // time, not UTC). v1.2.0 fix: this used to be
@@ -159,6 +233,10 @@
     // videos, using the exact same subjects list as Study (no separate
     // subject list/add-subject UI here - see renderRecSubjectPicker()).
     { id: 'rec', label: '🎥 Rec' },
+    // v1.3.7: third tab, same shape as Rec - a plain manual timer for
+    // time spent on past papers / exam papers. Shares Study's subjects
+    // list and is tracked as genuinely separate data (paperSessions).
+    { id: 'paper', label: '📝 Paper' },
     { id: 'stats', label: '📊 Stats' },
     { id: 'calendar', label: '🗓 Calendar' },
   ];
@@ -634,6 +712,184 @@
     renderRecFocusView(active);
   }
 
+  // ================= PAPER tab (v1.3.7) =================
+  //
+  // A third plain manual timer, exactly like Rec: pick a subject, start,
+  // stop, it logs the duration against Study's existing subjects list.
+  // Deliberately no Pomodoro option, no "add subject" UI, and no
+  // per-subject color picker here (all managed from the Study tab), same
+  // as Rec. Backed by GET/POST /api/study/paper/active...
+  // (lib/study-store.js's separate paperSessions/activePaperSession).
+
+  function renderManualPaperForm(subjects) {
+    const today = localTodayStr();
+    return `
+      <div class="panel" style="margin-top:18px">
+        <h3>Manual entry</h3>
+        <div class="study-page-sub" style="margin-top:-8px">Add time for a past paper you forgot to track.</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-top:10px">
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:0.82rem;font-weight:600;color:var(--ink-soft)">
+            Subject
+            <select id="ppr-manual-subject" style="padding:9px 10px;border-radius:7px;border:1.5px solid var(--margin);min-width:140px">
+              ${subjects.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('')}
+            </select>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:0.82rem;font-weight:600;color:var(--ink-soft)">
+            Date
+            <input type="date" id="ppr-manual-date" value="${today}" style="padding:9px 10px;border-radius:7px;border:1.5px solid var(--margin)" />
+          </label>
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:0.82rem;font-weight:600;color:var(--ink-soft)">
+            Hours
+            <input type="number" id="ppr-manual-hours" min="0" max="24" value="0" style="width:60px;padding:9px 10px;border-radius:7px;border:1.5px solid var(--margin)" />
+          </label>
+          <label style="display:flex;flex-direction:column;gap:3px;font-size:0.82rem;font-weight:600;color:var(--ink-soft)">
+            Minutes
+            <input type="number" id="ppr-manual-minutes" min="1" max="59" value="30" style="width:60px;padding:9px 10px;border-radius:7px;border:1.5px solid var(--margin)" />
+          </label>
+          <button class="btn" id="ppr-manual-save-btn">Save</button>
+        </div>
+        <div id="ppr-manual-error" style="margin-top:8px"></div>
+      </div>
+    `;
+  }
+
+  async function renderPaperTab() {
+    const body = document.getElementById('study-tab-body');
+    body.innerHTML = `<div class="empty-state">Loading…</div>`;
+    let active;
+    try {
+      active = await api('/api/study/paper/active');
+    } catch (e) {
+      body.innerHTML = `<div class="empty-state">Could not load: ${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    if (active) {
+      renderPaperFocusView(active);
+      pollTimer = setInterval(pollPaperFocus, 1000);
+    } else {
+      await renderPaperSubjectPicker();
+    }
+  }
+
+  async function renderPaperSubjectPicker() {
+    const body = document.getElementById('study-tab-body');
+    let subjects;
+    try {
+      subjects = await api('/api/study/subjects');
+    } catch (e) {
+      body.innerHTML = `<div class="empty-state">Could not load: ${escapeHtml(e.message)}</div>`;
+      return;
+    }
+    body.innerHTML = `
+      <div class="study-paper-scope">
+        <div class="study-page-sub">Pick a subject to start timing a past paper. Subjects (and their colors) are managed from the Study tab.</div>
+        <div class="study-subjects-grid" id="ppr-subjects-grid"></div>
+        ${subjects.length > 0 ? renderManualPaperForm(subjects) : ''}
+      </div>
+    `;
+    const grid = document.getElementById('ppr-subjects-grid');
+    if (subjects.length === 0) {
+      grid.innerHTML = `<div class="empty-state">No subjects yet - add one from the Study tab first.</div>`;
+      return;
+    }
+    subjects.forEach((s) => {
+      const color = colorForSubject(s);
+      const card = elFromHtml(`
+        <div class="study-subject-card" data-id="${s.id}" style="border-left-color:${color}">
+          <div class="study-subject-name">${escapeHtml(s.name)}</div>
+          <div class="study-subject-total">Click to start a paper</div>
+        </div>
+      `);
+      card.addEventListener('click', async () => {
+        try {
+          await api('/api/study/paper/active/start', { method: 'POST', body: { subjectId: s.id } });
+          renderPaperTab();
+        } catch (e) { showToast(e.message); }
+      });
+      grid.appendChild(card);
+    });
+    const saveBtn = document.getElementById('ppr-manual-save-btn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        const errBox = document.getElementById('ppr-manual-error');
+        errBox.innerHTML = '';
+        const subjectId = document.getElementById('ppr-manual-subject').value;
+        const date = document.getElementById('ppr-manual-date').value;
+        const hours = parseInt(document.getElementById('ppr-manual-hours').value, 10) || 0;
+        const minutes = parseInt(document.getElementById('ppr-manual-minutes').value, 10) || 0;
+        const durationMs = (hours * 60 + minutes) * 60000;
+        if (durationMs < 60000) { errBox.innerHTML = '<div class="add-error">Minimum duration is 1 minute.</div>'; return; }
+        try {
+          await api('/api/study/paper/manual', { method: 'POST', body: { subjectId, date, durationMs } });
+          showToast('Paper entry saved');
+        } catch (e) { showToast(e.message); }
+      });
+    }
+  }
+
+  function renderPaperFocusView(active) {
+    const body = document.getElementById('study-tab-body');
+    const ring = studyRingSvg({ fracRemaining: 1, spinForever: active.running, spinPaused: !active.running });
+    body.innerHTML = `
+      <div class="study-paper-scope">
+        <div class="study-focus">
+          <div class="study-focus-subject">${escapeHtml(active.subjectName)}</div>
+          <div class="study-ring-wrap">
+            ${ring}
+            <div class="study-ring-center">
+              <div class="study-ring-time">${fmtClock(active.elapsedMs)}</div>
+              <div class="study-ring-sub">elapsed</div>
+            </div>
+          </div>
+          <div class="study-focus-actions">
+            <button class="btn" id="ppr-pauseresume-btn">${active.running ? 'Pause' : 'Resume'}</button>
+            <button class="btn" id="ppr-finish-btn">Stop &amp; Save</button>
+            <button class="btn secondary" id="ppr-cancel-btn">Cancel (don't save)</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('ppr-pauseresume-btn').addEventListener('click', async () => {
+      try {
+        await api(active.running ? '/api/study/paper/active/pause' : '/api/study/paper/active/resume', { method: 'POST' });
+        pollPaperFocus();
+      } catch (e) { showToast(e.message); }
+    });
+    document.getElementById('ppr-finish-btn').addEventListener('click', async () => {
+      if (pollTimer) clearInterval(pollTimer);
+      try {
+        const result = await api('/api/study/paper/active/finish', { method: 'POST' });
+        if (result.discarded) showToast("That was too short to save - discarded.");
+        else showToast(`Saved ${fmtHoursShort(result.session.durationMs)} on paper`);
+      } catch (e) { showToast(e.message); }
+      renderPaperTab();
+    });
+    document.getElementById('ppr-cancel-btn').addEventListener('click', async () => {
+      if (!confirm("Discard this Paper timer without saving any time?")) return;
+      if (pollTimer) clearInterval(pollTimer);
+      try {
+        await api('/api/study/paper/active/cancel', { method: 'POST' });
+        showToast('Paper timer discarded');
+      } catch (e) { showToast(e.message); }
+      renderPaperTab();
+    });
+  }
+
+  async function pollPaperFocus() {
+    let active;
+    try {
+      active = await api('/api/study/paper/active');
+    } catch (e) {
+      return; // transient error - just try again next tick
+    }
+    if (!active) {
+      if (pollTimer) clearInterval(pollTimer);
+      renderPaperTab();
+      return;
+    }
+    renderPaperFocusView(active);
+  }
+
   // ================= STATS tab =================
 
   function buildPieSvg(subjectTotals, overallMs) {
@@ -656,11 +912,54 @@
   // day-by-day, so trends across months take real squinting to see).
   // Plain divs sized by CSS height%, same "no charting library" approach
   // the per-subject bars already use just below the pie.
-  function buildMonthlyBarChart(monthly, year) {
+  // v1.3.7: each month's bar is now a STACK of subject-colored segments
+  // (sized by that subject's share of the month's total) so you can see
+  // not just "how much" but "which subjects" drove each month, with a
+  // details toggle underneath that lists each segment's exact time.
+  function buildMonthlyBarChart(monthly, monthlySubjectMs, subjectTotals, year) {
     const maxMs = Math.max(1, ...monthly.map((m) => m.ms));
     const now = new Date();
     const isCurrentYear = year === now.getFullYear();
     const currentMonth = now.getMonth() + 1; // 1-12
+    // subjectId -> subjectTotals row (for name + chart color). subjectTotals
+    // only contains subjects with time this year - exactly the set that can
+    // show up in monthlySubjectMs - and deleted subjects fall back to a
+    // hash color + "(deleted subject)" name below.
+    const metaById = {};
+    (subjectTotals || []).forEach((st) => { metaById[st.subjectId] = st; });
+    const segsForMonth = (mIdx, monthMs) => {
+      const subjects = (monthlySubjectMs && monthlySubjectMs[mIdx] && monthlySubjectMs[mIdx].subjects) || {};
+      const entries = Object.entries(subjects)
+        .map(([sid, sms]) => ({ sid, sms, meta: metaById[sid] }))
+        .filter((x) => x.sms > 0)
+        .sort((a, b) => b.sms - a.sms);
+      if (entries.length === 0) {
+        const pct = monthMs > 0 ? Math.max(6, Math.round((monthMs / maxMs) * 100)) : 0;
+        return `<div class="study-monthly-bar-fill" style="height:${pct}%"></div>`;
+      }
+      return entries.map((x) => {
+        const color = x.meta ? colorForSubject(x.meta) : hashColor(x.sid);
+        const name = (x.meta && x.meta.name) || '(deleted subject)';
+        const pct = Math.max(0, (x.sms / maxMs) * 100);
+        return `<div class="study-monthly-bar-seg" style="height:${pct}%;background:${color}" title="${escapeHtml(name)}: ${fmtHoursShort(x.sms)}"></div>`;
+      }).join('');
+    };
+
+    const detailRows = monthly.map((m) => {
+      if (m.ms <= 0) return '';
+      const subjects = (monthlySubjectMs && monthlySubjectMs[m.month - 1] && monthlySubjectMs[m.month - 1].subjects) || {};
+      const items = Object.entries(subjects)
+        .map(([sid, sms]) => ({ sid, sms, meta: metaById[sid] }))
+        .filter((x) => x.sms > 0)
+        .sort((a, b) => b.sms - a.sms)
+        .map((x) => {
+          const color = x.meta ? colorForSubject(x.meta) : hashColor(x.sid);
+          const name = (x.meta && x.meta.name) || '(deleted subject)';
+          return `<span class="study-monthly-detail-item"><span class="study-monthly-detail-swatch" style="background:${color}"></span>${escapeHtml(name)} ${fmtHoursShort(x.sms)}</span>`;
+        }).join('');
+      return `<div class="study-monthly-detail-row"><span class="study-monthly-detail-month">${MONTH_NAMES[m.month - 1]}</span>${items}</div>`;
+    }).join('');
+
     return `
       <div class="study-monthly-bars">
         ${monthly.map((m) => {
@@ -668,12 +967,14 @@
           const pct = m.ms > 0 ? Math.max(6, Math.round((m.ms / maxMs) * 100)) : 0;
           return `
             <div class="study-monthly-bar-col${isFuture ? ' future' : ''}" title="${MONTH_NAMES[m.month - 1]} ${year}: ${fmtHoursShort(m.ms)}">
-              <div class="study-monthly-bar-track"><div class="study-monthly-bar-fill" style="height:${pct}%"></div></div>
+              <div class="study-monthly-bar-track">${pct > 0 ? segsForMonth(m.month - 1, m.ms) : ''}</div>
               <div class="study-monthly-bar-label">${MONTH_NAMES[m.month - 1]}</div>
             </div>
           `;
         }).join('')}
       </div>
+      <button class="study-monthly-detail-toggle" id="study-monthly-detail-toggle">${monthlyDetailsOpen ? 'Hide' : 'Show'} per-subject details</button>
+      <div class="study-monthly-details" id="study-monthly-details" ${monthlyDetailsOpen ? '' : 'style="display:none"'}>${detailRows}</div>
     `;
   }
 
@@ -686,16 +987,35 @@
   // lib/study-store.js's buildSubjectStats()). `emptyLabel` is the
   // scope-specific empty-state sentence ("yet in 2026" vs "on this
   // day").
+  // v1.3.7: now three kinds (Study + Rec + Paper) and, on top of that,
+  // the whole block respects the global Study/Rec/Paper filter toggles
+  // (chartFilters) - each subject's pie slice and bar segments only
+  // include the kinds that are currently switched on, and subjects with
+  // zero filtered time drop out entirely.
   function buildSubjectBreakdownHtml(stats, emptyLabel) {
-    if (stats.subjectTotals.length === 0) {
-      return `<div class="empty-state">No study or Rec time recorded ${emptyLabel}.</div>`;
+    const kindsOn = CHART_KINDS.filter((k) => chartFilters[k.key]);
+    const filtered = stats.subjectTotals
+      .map((s) => ({ ...s, totalMs: kindsOn.reduce((a, k) => a + msOfKind(s, k.key), 0) }))
+      .filter((s) => s.totalMs > 0)
+      .sort((a, b) => b.totalMs - a.totalMs);
+    const overallMs = filtered.reduce((a, s) => a + s.totalMs, 0);
+
+    const filterRow = buildChartFilterRow();
+
+    if (filtered.length === 0 || overallMs <= 0) {
+      const what = kindsOn.length === 0
+        ? 'No Study, Rec or Paper time'
+        : `No ${kindsOn.map((k) => k.label).join(' or ')} time`;
+      return `${filterRow}<div class="empty-state">${what} recorded ${emptyLabel}.</div>`;
     }
-    const maxSubjectMs = Math.max(1, ...stats.subjectTotals.map((s) => s.totalMs));
+
+    const maxSubjectMs = Math.max(1, ...filtered.map((s) => s.totalMs));
     return `
+      ${filterRow}
       <div class="study-pie-wrap">
-        ${buildPieSvg(stats.subjectTotals, stats.overallMs)}
+        ${buildPieSvg(filtered, overallMs)}
         <div class="study-pie-legend">
-          ${stats.subjectTotals.map((s) => `
+          ${filtered.map((s) => `
             <div class="study-pie-legend-row">
               <span class="study-pie-swatch" style="background:${colorForSubject(s)}"></span>
               ${escapeHtml(s.name)} — ${fmtHoursShort(s.totalMs)}
@@ -703,20 +1023,20 @@
           `).join('')}
         </div>
       </div>
-      <h3 style="margin-top:22px">Study vs Rec, per subject</h3>
+      <h3 style="margin-top:22px">Study vs Rec vs Paper, per subject</h3>
       <div class="study-split-legend">
-        <span><span class="study-split-swatch study-split-swatch-study"></span>Study</span>
-        <span><span class="study-split-swatch study-split-swatch-rec"></span>Rec</span>
+        ${kindsOn.map((k) => `<span><span class="study-split-swatch study-split-swatch-${k.key}"></span>${k.label}</span>`).join('')}
       </div>
       <div style="margin-top:10px">
-        ${stats.subjectTotals.map((s) => `
+        ${filtered.map((s) => `
           <div class="study-bar-row split">
             <div class="study-bar-label">${escapeHtml(s.name)}</div>
             <div class="study-bar-track-split">
-              <div class="study-bar-fill-study" style="width:${(s.studyMs / maxSubjectMs) * 100}%"></div>
-              <div class="study-bar-fill-rec" style="width:${(s.recMs / maxSubjectMs) * 100}%"></div>
+              ${kindsOn.map((k) => msOfKind(s, k.key) > 0
+                ? `<div class="study-bar-fill-${k.key}" style="width:${(msOfKind(s, k.key) / maxSubjectMs) * 100}%"></div>`
+                : '').join('')}
             </div>
-            <div class="study-bar-value">${fmtHoursShort(s.studyMs)} studied${s.recMs > 0 ? ` · ${fmtHoursShort(s.recMs)} watched` : ''}</div>
+            <div class="study-bar-value">${kindsOn.map((k) => msOfKind(s, k.key) > 0 ? `${fmtHoursShort(msOfKind(s, k.key))} ${k.actionWord}` : '').filter(Boolean).join(' · ')}</div>
           </div>
         `).join('')}
       </div>
@@ -733,13 +1053,14 @@
   function buildDayStatsHtml(day, emptyLabel) {
     return `
       <div class="study-stat-summary">
-        <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(day.overallMs)}</div><div class="study-stat-tile-label">Total (Study + Rec)</div></div>
+        <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(day.overallMs)}</div><div class="study-stat-tile-label">Total (Study + Rec + Paper)</div></div>
         <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(day.studyOverallMs)}</div><div class="study-stat-tile-label">📖 Study</div></div>
         <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(day.recOverallMs)}</div><div class="study-stat-tile-label">🎥 Rec</div></div>
+        <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(day.paperOverallMs || 0)}</div><div class="study-stat-tile-label">📝 Paper</div></div>
         <div class="study-stat-tile"><div class="study-stat-tile-value">${day.sessionCount}</div><div class="study-stat-tile-label">Sessions</div></div>
       </div>
       <div class="study-stats-col">
-        <h3>Time by subject (Study + Rec combined)</h3>
+        <h3>Time by subject</h3>
         ${buildSubjectBreakdownHtml(day, emptyLabel)}
       </div>
     `;
@@ -774,6 +1095,7 @@
   async function renderStatsTodayBody() {
     const sub = document.getElementById('study-stats-subbody');
     sub.innerHTML = `<div class="empty-state">Loading…</div>`;
+    await loadChartFilters();
     const todayStr = localTodayStr();
     let day;
     try {
@@ -794,6 +1116,7 @@
   async function renderStatsTotalBody() {
     const sub = document.getElementById('study-stats-subbody');
     sub.innerHTML = `<div class="empty-state">Loading…</div>`;
+    await loadChartFilters();
     let stats;
     try {
       stats = await api(`/api/study/stats?year=${statsYear}`);
@@ -809,14 +1132,15 @@
         <button id="study-stats-next-year">▶</button>
       </div>
       <div class="study-stat-summary">
-        <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(stats.overallMs)}</div><div class="study-stat-tile-label">Total (Study + Rec)</div></div>
+        <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(stats.overallMs)}</div><div class="study-stat-tile-label">Total (Study + Rec + Paper)</div></div>
         <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(stats.studyOverallMs)}</div><div class="study-stat-tile-label">📖 Study</div></div>
         <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(stats.recOverallMs)}</div><div class="study-stat-tile-label">🎥 Rec</div></div>
+        <div class="study-stat-tile"><div class="study-stat-tile-value">${fmtHoursShort(stats.paperOverallMs || 0)}</div><div class="study-stat-tile-label">📝 Paper</div></div>
         <div class="study-stat-tile"><div class="study-stat-tile-value">${stats.studiedDays}</div><div class="study-stat-tile-label">Days studied</div></div>
       </div>
       <div class="study-stats-cols">
         <div class="study-stats-col">
-          <h3>Time by subject (Study + Rec combined)</h3>
+          <h3>Time by subject</h3>
           ${buildSubjectBreakdownHtml(stats, `yet in ${statsYear}`)}
         </div>
         <div class="study-stats-col">
@@ -828,7 +1152,7 @@
       </div>
       <div class="study-stats-col" style="margin-top:22px">
         <h3>Hours by month</h3>
-        ${stats.overallMs <= 0 ? `<div class="empty-state">No study time recorded yet in ${statsYear}.</div>` : buildMonthlyBarChart(stats.monthly, statsYear)}
+        ${stats.overallMs <= 0 ? `<div class="empty-state">No study time recorded yet in ${statsYear}.</div>` : buildMonthlyBarChart(stats.monthly, stats.monthlySubjectMs, stats.subjectTotals, statsYear)}
       </div>
     `;
     document.getElementById('study-stats-prev-year').addEventListener('click', () => { statsYear--; renderStatsTotalBody(); });
@@ -848,6 +1172,7 @@
   async function renderCalendarTab() {
     const body = document.getElementById('study-tab-body');
     body.innerHTML = `<div class="empty-state">Loading…</div>`;
+    await loadChartFilters();
     let stats;
     try {
       stats = await api(`/api/study/stats?year=${calendarYear}`);
@@ -857,6 +1182,14 @@
     }
     const cells = buildHeatmapCells(stats.heatmap);
     const todayStr = localTodayStr();
+    // v1.3.7: opening the Calendar tab auto-selects today (when viewing
+    // the current year) so the day panel is never empty on first load and
+    // the "today" cell is highlighted right away. Resets to null when
+    // browsing a different year (the year buttons below also clear it).
+    if (calendarYear === new Date().getFullYear() && !selectedDay) {
+      const todayEntry = stats.heatmap.find((d) => d.date === todayStr);
+      if (todayEntry) selectedDay = todayEntry;
+    }
     const numCols = Math.ceil(cells.length / 7);
 
     const monthLabels = [];
@@ -881,7 +1214,7 @@
         <span class="study-year-label">${calendarYear}</span>
         <button id="study-cal-next-year">▶</button>
       </div>
-      <div class="study-page-sub">Each day is colored by the subject you spent the most time on. Click a day to see its breakdown.</div>
+      <div class="study-page-sub">Each day is colored by the subject you spent the most time on (the stronger the color, the more time that day). Click a day to see its breakdown.</div>
       <div class="study-heatmap-scroll">
         <div class="study-heatmap-months">${monthLabels.map((l) => `<div>${l}</div>`).join('')}</div>
         <div class="study-heatmap-body">
@@ -890,13 +1223,22 @@
             ${cells.map((entry) => {
               if (!entry) return `<div></div>`;
               const isFuture = entry.date > todayStr;
-              const minutes = entry.minutes;
+              const isToday = entry.date === todayStr;
+              const isSelected = selectedDay && selectedDay.date === entry.date;
+              const totalMinutes = entry.totalMinutes || entry.minutes;
               const title = isFuture ? entry.date
-                : minutes > 0 ? `${entry.date}: studied ${minutes}m`
+                : totalMinutes > 0 ? `${entry.date}: ${fmtHoursShort(totalMinutes * 60000)} total`
                 : `${entry.date}: no activity`;
-              const cellStyle = entry.dominantColor ? `style="background:${entry.dominantColor}"` : '';
+              // v1.3.7: a day with a dominant subject is colored by that
+              // subject, with the color's INTENSITY scaled by how much
+              // total time (Study + Rec + Paper) the day had - faint tint
+              // for a few minutes, full strength for hours. Days with no
+              // activity keep the purple level-scale as before.
+              const cellStyle = entry.dominantColor && totalMinutes > 0
+                ? `style="background:${hexToRgba(entry.dominantColor, alphaForMinutes(totalMinutes))}"`
+                : (entry.dominantColor ? `style="background:${entry.dominantColor}"` : '');
               const levelAttr = !entry.dominantColor ? `data-level="${entry.level}"` : '';
-              return `<div class="study-heat-cell${isFuture ? ' future' : ''}" data-date="${entry.date}" ${levelAttr} ${cellStyle} title="${escapeHtml(title)}"></div>`;
+              return `<div class="study-heat-cell${isFuture ? ' future' : ''}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}" data-date="${entry.date}" ${levelAttr} ${cellStyle} title="${escapeHtml(title)}"></div>`;
             }).join('')}
           </div>
         </div>
@@ -918,6 +1260,11 @@
       if (cell.classList.contains('future') || !cell.dataset.date) return;
       cell.addEventListener('click', () => {
         selectedDay = stats.heatmap.find((d) => d.date === cell.dataset.date);
+        // Move the .selected outline to the clicked cell (v1.3.7: this
+        // used to only be applied at render time, so the highlight never
+        // actually followed clicks until the tab was re-rendered).
+        document.querySelectorAll('#study-heatmap-grid .study-heat-cell.selected').forEach((c) => c.classList.remove('selected'));
+        cell.classList.add('selected');
         renderDaylogPanel();
       });
     });
@@ -953,6 +1300,41 @@
     `;
   }
 
+  // v1.3.7: delegated click handling for the global Study/Rec/Paper chart
+  // filter toggles and the "Hours by month" details toggle. Both are
+  // re-created on every stats/calendar re-render, so a single
+  // document-level listener (added once here) is simpler and more robust
+  // than re-wiring after every innerHTML swap. The filter toggles write
+  // through to the server (GET/PUT /api/settings/study-chart-filters) so
+  // the choice is global and saved forever, then re-render whatever
+  // stats/calendar view is currently open so it picks the change up
+  // immediately.
+  document.addEventListener('click', async (e) => {
+    const filterBtn = e.target.closest('.study-filter-btn');
+    if (filterBtn) {
+      const kind = filterBtn.dataset.kind;
+      if (!kind) return;
+      chartFilters[kind] = !chartFilters[kind];
+      try {
+        await api('/api/settings/study-chart-filters', {
+          method: 'PUT',
+          body: { study: chartFilters.study, rec: chartFilters.rec, paper: chartFilters.paper },
+        });
+      } catch (err) { showToast(err.message); }
+      const h = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+      if (h[0] === 'study') {
+        if (h[1] === 'stats') renderStatsTab();
+        else if (h[1] === 'calendar') renderCalendarTab();
+      }
+      return;
+    }
+    const detailToggle = e.target.closest('.study-monthly-detail-toggle');
+    if (detailToggle) {
+      monthlyDetailsOpen = !monthlyDetailsOpen;
+      renderStatsTotalBody();
+    }
+  });
+
   // ---------------- Entry point ----------------
 
   function render(subview) {
@@ -961,6 +1343,7 @@
     renderShell(tab);
     if (tab === 'study') return renderStudyTab();
     if (tab === 'rec') return renderRecTab();
+    if (tab === 'paper') return renderPaperTab();
     if (tab === 'stats') return renderStatsTab();
     if (tab === 'calendar') return renderCalendarTab();
   }

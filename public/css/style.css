@@ -286,6 +286,13 @@ body.nav-mode-icon .subsystem-nav .nav-link {
 .nav-theme-icon { font-size: 0.85rem; opacity: 0.55; }
 html[data-theme="light"] .nav-theme-icon:first-child,
 html[data-theme="dark"] .nav-theme-icon:last-child { opacity: 1; }
+/* v1.3.7: the header's day/night control is now a proper PHYSICAL
+   slider (not a button) - bigger track + thumb than the generic
+   .toggle-switch component so it reads as a thing you push, with a
+   drop shadow on the thumb for a bit of tactile depth. */
+.nav-theme-toggle .toggle-track { width: 48px; height: 26px; }
+.nav-theme-toggle .toggle-thumb { width: 20px; height: 20px; margin: 2px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
+.nav-theme-toggle .toggle-switch input:checked + .toggle-track .toggle-thumb { transform: translateX(22px); }
 
 /* v1.3.5: nav-icon-grid wraps the subsystem buttons + Settings; nav-
    bottom-row wraps the LAN button + day/night switch. `display:contents`
@@ -733,6 +740,18 @@ input[type="text"]:focus, input[type="url"]:focus {
 @media (prefers-reduced-motion: reduce) {
   .subject-card, .choice-tile, .progress-bar, .toast { transition: none; }
   .spinner { animation: none; }
+  .dex-view-anim { animation: none; }
+}
+
+/* v1.3.7: subsystem-switch transition. app.js re-triggers this class on
+   #view every time a different subsystem renders (see dispatch() in
+   app.js) - a quick fade + slight rise so switching tabs feels like a
+   deliberate transition rather than an instant text swap. Off entirely
+   under prefers-reduced-motion above. */
+.dex-view-anim { animation: dex-view-enter 0.28s ease; }
+@keyframes dex-view-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
 :focus-visible {
@@ -824,12 +843,16 @@ input[type="text"]:focus, input[type="url"]:focus {
   }
 
   /* LAN address + day/night switch, grouped below the icon grid rather
-     than mixed in with the subsystem buttons above. */
+     than mixed in with the subsystem buttons above. v1.3.7: margin-top
+     auto pins this row to the very bottom of the (flex-column) nav panel
+     so the day/night slider is always the lowest, last thing visible on
+     mobile, even when the icon grid grows taller than the screen. */
   .subsystem-nav .nav-bottom-row {
     display: flex;
     flex-direction: column;
     gap: 4px;
     padding-top: 14px;
+    margin-top: auto;
     border-top: 1px solid rgba(243, 236, 217, 0.2);
   }
   .subsystem-nav .nav-bottom-row .nav-lan-btn { border-radius: 8px; }

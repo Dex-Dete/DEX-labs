@@ -110,6 +110,35 @@ router.put('/theme', (req, res) => {
   res.json(resolveTheme());
 });
 
+// ---------------- Study chart filters (v1.3.7) ----------------
+// The three Study/Rec/Paper toggles next to Study's "Time by subject"
+// pie/bar breakdown (Stats tab + Calendar day panel). Global and saved
+// forever until deliberately changed again (explicit user requirement) -
+// stored in config.json like every other app setting, not per-page.
+function publicStudyChartFilters() {
+  const f = config.get().studyChartFilters || {};
+  return { study: f.study !== false, rec: f.rec !== false, paper: f.paper !== false };
+}
+
+router.get('/study-chart-filters', (req, res) => {
+  res.json(publicStudyChartFilters());
+});
+
+router.put('/study-chart-filters', (req, res) => {
+  const { study, rec, paper } = req.body || {};
+  if (study === undefined || rec === undefined || paper === undefined) {
+    return res.status(400).json({ error: 'Send study, rec, and paper (all booleans).' });
+  }
+  config.set({
+    studyChartFilters: {
+      study: !!study,
+      rec: !!rec,
+      paper: !!paper,
+    },
+  });
+  res.json(publicStudyChartFilters());
+});
+
 // ---------------- Standby Mode (SBM) settings ----------------
 function publicSbmSettings() {
   const cfg = config.get();

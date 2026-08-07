@@ -143,6 +143,55 @@ router.post('/rec/manual', async (req, res) => {
   } catch (e) { handleError(res, e); }
 });
 
+// ---------------- Paper: past-paper timer (v1.3.7) ----------------
+// Exactly mirrors the /rec/active routes above (same shape, /paper/...)
+// - Paper is a third kind of tracked time alongside Study and Rec,
+// sharing the same subjects list, backed by lib/study-store.js's
+// separate paperSessions/activePaperSession fields.
+
+router.get('/paper/active', async (req, res) => {
+  res.json(await store.getPaperActive());
+});
+
+router.post('/paper/active/start', async (req, res) => {
+  try {
+    res.status(201).json(await store.startPaperSession(req.body));
+  } catch (e) { handleError(res, e); }
+});
+
+router.post('/paper/active/pause', async (req, res) => {
+  try {
+    res.json(await store.pausePaperActive());
+  } catch (e) { handleError(res, e); }
+});
+
+router.post('/paper/active/resume', async (req, res) => {
+  try {
+    res.json(await store.resumePaperActive());
+  } catch (e) { handleError(res, e); }
+});
+
+router.post('/paper/active/cancel', async (req, res) => {
+  try {
+    await store.cancelPaperActive();
+    res.json({ ok: true });
+  } catch (e) { handleError(res, e); }
+});
+
+router.post('/paper/active/finish', async (req, res) => {
+  try {
+    res.json(await store.finishPaperActive());
+  } catch (e) { handleError(res, e); }
+});
+
+// ---------------- Manual Paper entry (v1.3.7) ----------------
+
+router.post('/paper/manual', async (req, res) => {
+  try {
+    res.status(201).json(await store.addManualPaperSession(req.body));
+  } catch (e) { handleError(res, e); }
+});
+
 // ---------------- Stats / heatmap ----------------
 
 router.get('/stats', async (req, res) => {

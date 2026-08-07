@@ -468,12 +468,14 @@
   function stopSubsystemPolling(id) {
     if (!id) return;
     try {
-      if (id === 'timers' && window.Timers && typeof window.Timers.cleanup === 'function') return window.Timers.cleanup();
-      if (id === 'study' && window.Study && typeof window.Study.cleanup === 'function') return window.Study.cleanup();
-      if (id === 'ytdownload' && window.YTDownload && typeof window.YTDownload.cleanup === 'function') return window.YTDownload.cleanup();
-      if (id === 'airdrop' && window.Airdrop && typeof window.Airdrop.cleanup === 'function') return window.Airdrop.cleanup();
-      const generic = window.DexSubsystems && window.DexSubsystems[id];
-      if (generic && typeof generic.cleanup === 'function') generic.cleanup();
+      if (id === 'timers' && window.Timers && typeof window.Timers.cleanup === 'function') window.Timers.cleanup();
+      else if (id === 'study' && window.Study && typeof window.Study.cleanup === 'function') window.Study.cleanup();
+      else if (id === 'ytdownload' && window.YTDownload && typeof window.YTDownload.cleanup === 'function') window.YTDownload.cleanup();
+      else if (id === 'airdrop' && window.Airdrop && typeof window.Airdrop.cleanup === 'function') window.Airdrop.cleanup();
+      else {
+        const generic = window.DexSubsystems && window.DexSubsystems[id];
+        if (generic && typeof generic.cleanup === 'function') generic.cleanup();
+      }
     } catch (e) { /* never let a cleanup slip block navigation */ }
   }
 
@@ -517,6 +519,14 @@
         if (activeSubsystemId && activeSubsystemId !== id) stopSubsystemPolling(activeSubsystemId);
         activeSubsystemId = id;
         window.setSubsystem(id);
+        // v1.3.7: retrigger the fade-in animation on #view whenever the
+        // subsystem changes (see .dex-view-anim in style.css) - removing
+        // the class, forcing a reflow, then re-adding it guarantees the
+        // animation runs even if the previous one just finished.
+        const viewEl = document.getElementById('view');
+        viewEl.classList.remove('dex-view-anim');
+        void viewEl.offsetWidth;
+        viewEl.classList.add('dex-view-anim');
         if (id === 'lessons') return renderSubjects();
         if (id === 'airdrop') return window.Airdrop.render();
         if (id === 'schedule') return window.Schedule.render();

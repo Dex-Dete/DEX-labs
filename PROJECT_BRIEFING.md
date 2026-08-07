@@ -619,6 +619,66 @@ landing-page/                  the Landing Page - own Node process, own
   back to the user - they already have it. If something is genuinely
   ambiguous, ask; otherwise just ship the diff.
 
+## v1.3.7 (for future sessions)
+
+Full writeup in CHANGES.md's v1.3.7 section. Short version + rules for
+future work:
+
+1. **Study gained a third kind of tracked time: Paper** - a manual timer
+   for past papers/exam papers, exactly parallel to Rec (its own
+   `paperSessions`/`activePaperSession` in `data/study.json`, its own
+   `/api/study/paper/active...` + `/paper/manual` routes, its own Paper
+   tab in `public/js/study.js`, and its own teal accent tokens
+   `--ppr-accent*` in `study.css`). **Rule: if you ever add yet another
+   kind of tracked time, copy this shape exactly** - separate top-level
+   store fields (never one array with a type flag), separate routes,
+   a `buildSubjectStats()`/`getStats()`/`getDayStats()` extension (they
+   now take study + rec + paper session arrays), and a `.study-*-scope`
+   wrapper in CSS that locally remaps `--study-accent*` like
+   `.study-rec-scope`/`.study-paper-scope` do. Note the accent tokens are
+   named `--ppr-*` on purpose, never `--paper-*` - `--paper`/`--paper-line`
+   are already base background tokens in `style.css`.
+2. **Global Study/Rec/Paper chart toggles** - the three Show/Study/Rec/
+   Paper buttons next to the "Time by subject" pie in Stats and the
+   Calendar day panel. **Global + saved forever until changed again
+   (explicit user requirement)**: persisted in `config.json` under
+   `studyChartFilters`, exposed as `GET/PUT /api/settings/study-chart-filters`
+   in `routes/settings.js`, cached client-side in `study.js`'s
+   `chartFilters` (loaded once via `loadChartFilters()`). The pie and
+   per-subject split bars in `buildSubjectBreakdownHtml()` filter by the
+   enabled kinds; the summary tiles do NOT (they always show all three).
+   Toggle clicks are handled by one document-level delegated listener in
+   `study.js` that writes through to the server then re-renders the
+   current stats/calendar view. **Rule: any new filterable time kind must
+   also be added to `CHART_KINDS` (with an `actionWord` for the bar value
+   column) and to `config-store.js`'s `studyChartFilters` default.**
+3. **"Hours by month" stacked by subject + details toggle** - `getStats()`
+   now also returns `monthlySubjectMs` (12 entries of `{month, subjects}`)
+   alongside `monthly`; `buildMonthlyBarChart()` renders each month as a
+   stack of subject-colored segments (largest at the bottom - the track is
+   now `flex-direction: column; justify-content: flex-end`, and the
+   segment border-radii follow that bottom-up order). The details toggle
+   (`monthlyDetailsOpen`, delegated listener) lists exact per-subject times
+   per month.
+4. **Calendar tab** - heatmap entries now carry `totalMinutes` (Study +
+   Rec + Paper) so the frontend scales a day's dominant-subject color by
+   intensity (`hexToRgba` + `alphaForMinutes` in `study.js`), the "today"
+   cell gets a `.today` red ring, opening the tab auto-selects today, and
+   the `.selected` outline now actually follows clicks (the old code only
+   applied it at render time). `ms`/`minutes`/`studiedDays` remain
+   Study-only by design - don't change that without a user request.
+5. **Header theme control is a real slider** - the v1.3.5 markup used
+   `.nav-theme-switch/.nav-theme-track/.nav-theme-thumb` classes that no
+   CSS existed for (the switch rendered as a bare checkbox). It's now the
+   shared `.toggle-switch` component with sun/moon bookends and larger
+   header-specific overrides (`.nav-theme-toggle .toggle-track/.toggle-thumb`).
+   **Rule: the shared `.toggle-switch` component in style.css is the only
+   sanctioned way to build an on/off switch; don't invent new classes for
+   one.**
+6. **Subsystem-switch animation** - `dispatch()` in `app.js` re-triggers
+   `.dex-view-anim` on `#view` (remove class → force reflow → re-add).
+   Respects `prefers-reduced-motion`.
+
 ## v1.3.6 (for future sessions)
 
 Full writeup in CHANGES.md's v1.3.6 section. Short version:

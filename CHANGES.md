@@ -1,3 +1,63 @@
+# DEX Labs v1.3.7 - Changes
+
+Ten user-requested changes, almost all of them in the Study subsystem:
+
+**1. New Paper tab (Study).** A third kind of tracked time alongside Study
+and Rec: a plain manual timer (pick a subject, start, stop) for time spent
+on past papers / exam papers, sharing the same subjects list. Tracked as
+genuinely separate data (`paperSessions`/`activePaperSession` in
+`data/study.json`, never merged into `sessions`/`recSessions`), with its
+own teal accent (new `--ppr-accent` tokens), a manual entry form, and full
+`GET/POST /api/study/paper/active...` + `/paper/manual` routes mirroring Rec.
+A `Paper` session also blocks auto-updates while running and can't be
+orphaned by deleting its subject, exactly like Study/Rec sessions.
+
+**2. Stats now include Paper.** The summary tiles in Stats (Total and Today)
+and the Calendar day panel gained a 📝 Paper tile, and the per-subject
+"Study vs Rec, per subject" bars became "Study vs Rec vs Paper" (three color
+segments + a third legend swatch).
+
+**3. Global Study/Rec/Paper chart toggles.** Next to the "Time by subject"
+pie in Stats (Total and Today) and the Calendar day panel there are now
+three Show/Study/Rec/Paper toggle buttons. Flipping one instantly filters
+that kind of time out of the pie and the per-subject bars (off = dimmed and
+struck through). Per explicit requirement these toggles are **global and
+saved forever until changed again** - stored in `data/config.json`
+(`studyChartFilters`) via new `GET/PUT /api/settings/study-chart-filters`,
+so the choice applies everywhere and survives reloads/restarts.
+
+**4. "Hours by month" is now stacked by subject color** (Stats > Total),
+so each month shows not just how much but *which* subjects drove it. A
+"Show/Hide per-subject details" toggle underneath lists each month's
+segments with exact times (e.g. "May — <swatch> Chemistry 5h 1m · <swatch>
+Maths 2h"). Fed by a new `monthlySubjectMs` field in `getStats()`.
+
+**5. Calendar heatmap improvements.** Cells colored by their dominant
+subject now scale that color's **intensity** by how much total time
+(Study + Rec + Paper) the day actually had - a 10-minute day is a faint
+tint, a 5-hour day is full strength - instead of every colored day looking
+identical. The "today" cell gets a red ring, and opening the Calendar tab
+now **auto-selects today** (day panel loads immediately). Also fixed a
+pre-existing bug where the `.selected` outline never actually followed
+clicks until the tab was re-rendered.
+
+**6. Dark-mode toggle is now a real physical slider.** The header's
+day/night switch was rendering as a bare checkbox (the v1.3.5 markup used
+`.nav-theme-switch`/`.track`/`.thumb` classes that no CSS existed for).
+Rewired it to the shared `.toggle-switch` component with sun/moon bookends
+and a larger, tactile track + thumb (drop-shadowed) so it reads as a slider
+you push, not a button you click.
+
+**7. Mobile: the theme slider sits at the lowest visible spot.** The
+mobile nav's bottom row (LAN address + day/night slider) is now pinned to
+the bottom of the slide-in panel (`margin-top: auto`), so the slider is
+always the last, lowest thing visible even when the icon grid grows.
+
+**8. Subsystem-switch animation.** Switching between subsystems now plays a
+quick fade + slight-rise transition on the main view (`.dex-view-anim` in
+style.css, re-triggered in `app.js`'s `dispatch()`). Disabled entirely
+under `prefers-reduced-motion`.
+
 # DEX Labs v1.3.6 - Changes
 
 Three user-requested changes to the Study subsystem:
