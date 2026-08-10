@@ -344,6 +344,50 @@
     if (shouldShow) creature = makeCreature(container, sbmSettings.sbmCreatureSize);
   }
 
+  // ---------------- Today's To-Do section (v1.4.0) ----------------
+  // Optional card (Settings > Standby Mode > "Show today's to-do list").
+  // Shows pending to-dos due today or overdue (what you should be doing
+  // RIGHT NOW on the standby screen), plus how many you already ticked
+  // off today. Reads the same /api/todos endpoints the To-Do subsystem
+  // uses - one source of truth, no duplicated logic.
+  function localTodayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  async function loadTodos() {
+    const el = document.getElementById('sbm-todos');
+    if (!el) return;
+    try {
+      const [pendingRes, allRes] = await Promise.all([
+        api('/api/todos/pending'),
+        api('/api/todos'),
+      ]);
+      const todayStr = localTodayStr();
+      const dueToday = (pendingRes.todos || []).filter((t) => t.dueDate && t.dueDate <= todayStr);
+      const doneToday = (allRes.todos || []).filter((t) => t.done && t.doneAt === todayStr).length;
+      if (!dueToday.length && doneToday === 0) {
+        el.innerHTML = `<div class="sbm-section-title">Today's To-Do</div><div class="sbm-todo-empty">Nothing due today.</div>`;
+        return;
+      }
+      const shown = dueToday.slice(0, 6);
+      const extra = dueToday.length - shown.length;
+      el.innerHTML = `
+        <div class="sbm-section-title">Today's To-Do${doneToday ? ` <span class="sbm-todo-donecount">${doneToday} done ✔</span>` : ''}</div>
+        <div class="sbm-todo-list">
+          ${shown.map((t) => `
+            <div class="sbm-todo-row${t.dueDate < todayStr ? ' overdue' : ''}">
+              <span class="sbm-todo-bullet">${t.dueDate < todayStr ? '⚠' : '•'}</span>
+              <span class="sbm-todo-text">${escapeHtml(t.text)}</span>
+              <span class="sbm-todo-due">${t.dueDate < todayStr ? `overdue ${t.dueDate}` : 'today'}</span>
+            </div>
+          `).join('')}
+          ${extra > 0 ? `<div class="sbm-todo-more">+${extra} more</div>` : ''}
+        </div>
+      `;
+    } catch (e) { /* not critical */ }
+  }
+
   // ---------------- Entry point ----------------
 
   async function render() {
@@ -352,7 +396,7 @@
     crumbs.innerHTML = `<span>Standby Mode</span>`;
     const view = document.getElementById('view');
 
-    let sbmSettings = { sbmStatsEnabled: true, sbmClockFormat: '24', sbmUltraGraphics: false, sbmCreatureEnabled: true, sbmCreatureSize: 5 };
+    let sbmSettings = { sbmStatsEnabled: true, sbmClockFormat: '24', sbmUltraGraphics: false, sbmCreatureEnabled: true, sbmCreatureSize: 5, sbmTodosEnabled: true };
     try { sbmSettings = await api('/api/settings/sbm'); } catch (e) { /* use defaults */ }
 
     view.innerHTML = `
@@ -367,6 +411,7 @@
         <div class="sbm-grid">
           <div class="sbm-card" id="sbm-events"></div>
           ${sbmSettings.sbmStatsEnabled ? '<div class="sbm-card" id="sbm-stats"></div>' : ''}
+          ${sbmSettings.sbmTodosEnabled ? '<div class="sbm-card" id="sbm-todos"></div>' : ''}
           <div class="sbm-card" id="sbm-fact"></div>
         </div>
       </div>
@@ -384,6 +429,11 @@
     if (sbmSettings.sbmStatsEnabled) {
       loadStats();
       pollHandles.push(setInterval(loadStats, 3000));
+    }
+
+    if (sbmSettings.sbmTodosEnabled) {
+      loadTodos();
+      pollHandles.push(setInterval(loadTodos, 30000));
     }
 
     loadFact();

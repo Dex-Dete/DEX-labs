@@ -150,6 +150,18 @@ try {
 }
 
 try {
+  // v1.4.0: To-Do list subsystem - add/tick/delete to-dos, schedule
+  // them on calendar days, and show them in Standby Mode. Own store,
+  // own router, same pattern as every other subsystem.
+  const todosRouter = require('./routes/todos');
+  app.use('/api/todos', todosRouter);
+  console.log('[OK] To-Do routes loaded.');
+} catch (err) {
+  console.error('[ERROR] To-Do routes failed to load - that feature will be unavailable:', err && err.stack || err);
+  app.use('/api/todos', (req, res) => res.status(500).json({ error: 'To-Do failed to start. Check logs.txt.' }));
+}
+
+try {
   const settingsRouter = require('./routes/settings');
   app.use('/api/settings', settingsRouter);
   console.log('[OK] Settings/update-notice routes loaded.');

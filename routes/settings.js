@@ -148,6 +148,8 @@ function publicSbmSettings() {
     sbmUltraGraphics: !!cfg.sbmUltraGraphics,
     sbmCreatureEnabled: cfg.sbmCreatureEnabled !== false,
     sbmCreatureSize: Number.isFinite(cfg.sbmCreatureSize) ? cfg.sbmCreatureSize : 5,
+    // v1.4.0: today's to-do list card in Standby Mode (default on).
+    sbmTodosEnabled: cfg.sbmTodosEnabled !== false,
   };
 }
 
@@ -156,12 +158,13 @@ router.get('/sbm', (req, res) => {
 });
 
 router.put('/sbm', (req, res) => {
-  const { sbmStatsEnabled, sbmClockFormat, sbmUltraGraphics, sbmCreatureEnabled, sbmCreatureSize } = req.body || {};
+  const { sbmStatsEnabled, sbmClockFormat, sbmUltraGraphics, sbmCreatureEnabled, sbmCreatureSize, sbmTodosEnabled } = req.body || {};
   const patch = {};
 
   if (sbmStatsEnabled !== undefined) patch.sbmStatsEnabled = !!sbmStatsEnabled;
   if (sbmUltraGraphics !== undefined) patch.sbmUltraGraphics = !!sbmUltraGraphics;
   if (sbmCreatureEnabled !== undefined) patch.sbmCreatureEnabled = !!sbmCreatureEnabled;
+  if (sbmTodosEnabled !== undefined) patch.sbmTodosEnabled = !!sbmTodosEnabled;
 
   if (sbmClockFormat !== undefined) {
     if (sbmClockFormat !== '12' && sbmClockFormat !== '24') {

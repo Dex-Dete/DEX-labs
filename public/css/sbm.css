@@ -126,6 +126,17 @@ html[data-theme="dark"] .sbm-root.sbm-ultra {
 
 .sbm-fact-text { font-size: 0.92rem; line-height: 1.45; color: var(--ink); }
 
+/* ---- Today's To-Do card (v1.4.0) ---- */
+.sbm-todo-list { display: flex; flex-direction: column; gap: 5px; }
+.sbm-todo-row { display: flex; gap: 8px; font-size: 0.88rem; align-items: baseline; }
+.sbm-todo-row.overdue .sbm-todo-text { color: #e74c3c; }
+.sbm-todo-bullet { flex-shrink: 0; color: var(--sbm-accent); }
+.sbm-todo-text { flex: 1; min-width: 0; word-break: break-word; }
+.sbm-todo-due { color: var(--ink-soft); font-size: 0.75rem; white-space: nowrap; flex-shrink: 0; }
+.sbm-todo-donecount { color: #2ecc71; font-weight: 700; text-transform: none; letter-spacing: 0; }
+.sbm-todo-more { font-size: 0.78rem; color: var(--ink-soft); }
+.sbm-todo-empty { font-size: 0.88rem; color: var(--ink-soft); }
+
 /* ---- Follow-mouse creature (v1.3.0, SBM only) ---- */
 .sbm-creature {
   position: absolute;

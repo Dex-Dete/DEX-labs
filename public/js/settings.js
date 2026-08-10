@@ -111,6 +111,11 @@
           <span>Show host RAM/CPU stats in Standby Mode</span>
         </label>
 
+        <label style="display:flex; align-items:center; gap:8px; padding:6px 0;">
+          <input type="checkbox" id="set-sbm-todos" ${sbm.sbmTodosEnabled ? 'checked' : ''} />
+          <span>Show today's to-do list in Standby Mode</span>
+        </label>
+
         <div class="form-row" style="margin-top:8px;">
           <label style="display:flex; flex-direction:column; gap:6px;">
             <span>Standby Mode's clock format</span>
@@ -341,6 +346,7 @@
           method: 'PUT',
           body: {
             sbmStatsEnabled: document.getElementById('set-sbm-stats').checked,
+            sbmTodosEnabled: document.getElementById('set-sbm-todos').checked,
             sbmClockFormat: document.getElementById('set-sbm-clock-format').value,
             sbmUltraGraphics: document.getElementById('set-sbm-ultra').checked,
             sbmCreatureEnabled: document.getElementById('set-sbm-creature').checked,

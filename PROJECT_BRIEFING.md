@@ -619,6 +619,49 @@ landing-page/                  the Landing Page - own Node process, own
   back to the user - they already have it. If something is genuinely
   ambiguous, ask; otherwise just ship the diff.
 
+## v1.4.0 (for future sessions)
+
+To-Do subsystem + calendar tie fix + Standby Mode to-do card. Short version
+and rules for future work:
+
+1. **To-Do is a normal subsystem** (id `todos`, label "To-Do", icon ✅).
+   Store `lib/todos-store.js` -> `data/todos.json` (items: `id`, `text`,
+   `createdAt`, `dueDate` YYYY-MM-DD or null, `done`, `doneAt` local date
+   or null). Router `routes/todos.js` at `/api/todos`: GET `/` (pending
+   first then done), GET `/pending`, POST (add), PATCH `/:id` (text /
+   dueDate / done - `done` toggling auto-stamps `doneAt` with the LOCAL
+   date), DELETE `/:id`. Frontend `public/js/todos.js` + `public/css/todos.css`,
+   registered in `lib/subsystems-registry.js`, script/css tags in
+   `public/index.html`, routes mounted in `server.js`. All new - do not
+   move it inside Study; the calendar only READS it.
+2. **The calendar bug fix is server-driven, not CSS hacks.** `getStats()`
+   in `lib/study-store.js` now emits `topSubjects[]` per heatmap day -
+   EVERY subject tied at the day's max total ms (Study+Rec+Paper),
+   each `{ subjectId, subjectName, color, ms }`, sorted desc. The
+   frontend (`public/js/study.js` `cellBackgroundFor`/`cellTitleFor`)
+   splits the cell into equal vertical `linear-gradient` slices (max 4)
+   and lists names+times in the hover tooltip. If you ever change
+   subjects/colors, keep `topSubjects` in the /stats response - the
+   day panel and tooltip depend on it.
+3. **Calendar day panel + bottom form are the second place to-do items
+   are managed** (day panel: Done/Scheduled lists with tick/un-tick/
+   delete + quick-add for that date; bottom of the Calendar tab:
+   "Schedule a to-do" with text + date). Both just call the same
+   `/api/todos` API - never duplicate to-do logic in study.js. The
+   green dot on cells with completed to-dos is CSS `.study-heat-cell.has-todo::after`.
+4. **Standby Mode to-do card is opt-out.** Setting `sbmTodosEnabled`
+   (config.json default `true`, Settings > Standby Mode, handled in
+   `routes/settings.js` + `public/js/settings.js` + `public/js/sbm.js`
+   `loadTodos()`). It shows pending items due today or overdue and a
+   done-today count, polling `/api/todos/pending` + `/api/todos` every
+   30s. Keep it read-only - to-dos are managed from the To-Do tab or
+   the Calendar.
+5. **Local dates, never UTC** - `doneAt`, `dueDate`, and the calendar
+   dots all use local-date helpers (`todos-store.localDateStr`,
+   `study.js localTodayStr`, `sbm.js localTodayStr`). Sri Lanka is
+   UTC+5:30; a UTC date is a day behind. This was a recurring bug class
+   (see v1.2.0 notes) - don't reintroduce it.
+
 ## v1.3.8 (for future sessions)
 
 User-requested animation polish. Short version + rules for future work:

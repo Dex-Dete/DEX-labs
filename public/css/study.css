@@ -537,6 +537,20 @@ html[data-theme="dark"] {
    outline if today is also selected) so you can spot it at a glance even
    on a full year of cells. */
 .study-heat-cell.today { box-shadow: inset 0 0 0 2px var(--pen); }
+/* v1.4.0: days with at least one ticked-off to-do get a tiny green dot
+   in the bottom-right corner - the calendar's at-a-glance "what I did
+   that day" marker (in addition to the day panel's Done list). */
+.study-heat-cell.has-todo::after {
+  content: '';
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #2ecc71;
+}
+.study-heat-cell { position: relative; }
 .study-heat-cell[data-level="1"] { background: #c9c2e8; }
 .study-heat-cell[data-level="2"] { background: #9a8dd1; }
 .study-heat-cell[data-level="3"] { background: #6c5bb5; }
@@ -562,6 +576,42 @@ html[data-theme="dark"] {
   padding: 14px 16px;
 }
 .study-daylog-panel-title { font-weight: bold; margin-bottom: 8px; }
+
+/* v1.4.0: to-do section inside the Calendar day panel + the
+   "Schedule a to-do" form at the bottom of the Calendar tab. */
+.study-todo-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--paper-line); }
+.study-todo-section-title { font-size: 0.92rem; margin: 0 0 6px; }
+.study-todo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.study-todo-row:hover { background: var(--card-hover, rgba(128, 128, 128, 0.08)); }
+.study-todo-row.done .study-todo-text { text-decoration: line-through; color: var(--ink-soft); }
+.study-todo-tick { color: #2ecc71; font-weight: bold; }
+.study-todo-text { flex: 1; min-width: 0; word-break: break-word; }
+.study-todo-check, .study-todo-uncheck, .study-todo-del {
+  border: 1px solid var(--paper-line);
+  background: var(--card);
+  border-radius: 6px;
+  width: 26px;
+  height: 24px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.study-todo-check:hover { background: #2ecc71; color: #fff; border-color: #2ecc71; }
+.study-todo-del:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
+.study-todo-add-row { display: flex; gap: 8px; margin-top: 10px; }
+.study-todo-add-row input { flex: 1; min-width: 0; }
+.study-todo-schedule-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.study-todo-schedule-row input[type="text"] { flex: 1; min-width: 220px; }
+.study-todo-schedule-row input[type="date"] { flex-shrink: 0; }
+.study-todo-schedule .hint { margin-top: 8px; }
 
 /* v1.3.7: in-tab content transition. study.js re-triggers this class on
    the tab-body container AFTER each tab's async content has finished

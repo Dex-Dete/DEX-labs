@@ -1,3 +1,62 @@
+# DEX Labs v1.4.0 - Changes
+
+User-requested To-Do list + calendar bug fix. New subsystem plus two
+calendar improvements and a Standby Mode addition:
+
+**1. NEW subsystem: To-Do.** A new nav tab (id `todos`, label "To-Do",
+icon ✅, hideable like every other subsystem). The brief's exact asks:
+- **Easy adding and deleting** - one text input + Enter (or Add button)
+  to add, one ✕ button per row to delete. The date input next to the
+  add box is optional; if you fill it, the to-do is "scheduled" on that
+  day.
+- **Tick off like the "- [ ]" list.** Each row has a ☐/☑ button. Ticking
+  moves it to a Done section stamped with today's LOCAL date
+  (`doneAt`) - un-ticking moves it back and forgets the stamp.
+- **Filters** All / To do / Done with counts, so a long list stays
+  manageable.
+- Backed by a new store (`lib/todos-store.js`, `data/todos.json`) and
+  router (`routes/todos.js`, mounted at `/api/todos`): GET list,
+  GET pending, POST add, PATCH edit/tick, DELETE remove. Same
+  isolation pattern as every other subsystem.
+
+**2. Calendar: split box when two things tie for the most time.** The
+reported bug: a day with e.g. 2h Literature AND 2h Geography only
+showed ONE dominant subject - no hint the other was equally on top.
+Now the server (`lib/study-store.js` `getStats`) returns
+`topSubjects[]` with EVERY subject tied at the day's maximum
+(Study + Rec + Paper ms, with name + color), and the Calendar tab
+splits the day's box into one equal vertical slice per tied subject,
+each in that subject's own color (up to 4 slices; ties beyond that
+stay in the tooltip). Intensity still scales with total time as in
+v1.3.7.
+
+**3. Calendar: hover shows which subject is done most.** The cell
+tooltip now lists each top subject by name with its time
+("Literature — 2h 0m" on its own line), then the day total - so
+hovering answers "which subject did I do the most that day" and shows
+both halves of a tie.
+
+**4. Calendar: to-dos meet the calendar.** The day panel (click any
+day) gains a To-Do section: "Done this day" (to-dos ticked off on that
+date - the calendar's answer to "what did I do that day") and
+"Scheduled this day" (to-dos due on that date), each with tick/un-tick
+and delete, plus a one-line quick-add that schedules straight onto the
+selected day. Days with at least one completed to-do get a small green
+dot in the corner of their heatmap cell. And at the BOTTOM of the
+Calendar tab there's a "Schedule a to-do" form (text + date) - the
+"at the lowest point I can schedule things to do" ask - which shows
+up on its day, on the To-Do list, and in Standby Mode.
+
+**5. Standby Mode: today's to-do list.** New setting (Settings >
+Standby Mode > "Show today's to-do list in Standby Mode",
+`sbmTodosEnabled`, on by default) - an optional "Today's To-Do" card
+showing pending to-dos due today or overdue (overdue marked with ⚠),
+plus a green "N done ✔" count of to-dos ticked off today. Refreshes
+every 30s from the same `/api/todos` endpoints the To-Do tab uses.
+
+No data migration needed - `data/todos.json` is created empty on first
+use, and all new config keys have defaults.
+
 # DEX Labs v1.3.8 - Changes
 
 User-requested animation polish, all in the Study subsystem plus the shared

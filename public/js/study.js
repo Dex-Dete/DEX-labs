@@ -30,6 +30,11 @@
   let statsYear = new Date().getFullYear();
   let calendarYear = new Date().getFullYear();
   let selectedDay = null; // currently selected heatmap cell, Calendar tab
+  // v1.4.0: to-do list cache, shared by the Calendar tab's day panel and
+  // its "schedule a to-do" form. Refreshed from GET /api/todos whenever
+  // the Calendar tab renders or a to-do is added/ticked/deleted from
+  // this page - see loadTodos() below.
+  let todosCache = { todos: [] };
   // v1.3.3: Stats tab now has its own Today/Total sub-tabs - "Total" is
   // the original year-scoped stats page, unchanged; "Today" is the same
   // page shape scoped to just today (see buildDayStatsHtml() below).
@@ -1171,6 +1176,62 @@
     return new Array(startWeekday).fill(null).concat(heatmapDays);
   }
 
+  // v1.4.0: the calendar cells now know EVERY subject tied at the day's
+  // top time (server-side `topSubjects`, see lib/study-store.js), not
+  // just one "dominant" subject. Two helpers:
+  //
+  //  - cellBackgroundFor(entry): a single subject -> one solid color
+  //    (alpha-scaled by total time, as before). Two or more subjects
+  //    tied at the top (e.g. 2h Literature AND 2h Geography) -> the
+  //    cell is SPLIT into equal vertical slices, one per tied subject,
+  //    each in that subject's own color. This was the reported bug:
+  //    a tied day used to show only one color with no hint the other
+  //    subject was equally at the top.
+  //  - cellTitleFor(entry): hover tooltip listing every top subject by
+  //    name with its time ("which is done most" is the first line),
+  //    then the day total.
+
+  function topSubjectColor(sub) {
+    return colorForSubject({ id: sub.subjectId, color: sub.color });
+  }
+
+  function cellBackgroundFor(entry, totalMinutes) {
+    const tops = (entry.topSubjects && entry.topSubjects.length) ? entry.topSubjects : null;
+    const alpha = alphaForMinutes(totalMinutes);
+    if (tops && tops.length > 1) {
+      // Cap the number of slices a cell can carry so a pathological
+      // 5-way tie still renders sanely (extra tied subjects stay in
+      // the tooltip).
+      const slices = tops.slice(0, 4);
+      const stops = [];
+      const step = 100 / slices.length;
+      slices.forEach((sub, i) => {
+        const color = hexToRgba(topSubjectColor(sub), alpha);
+        const start = i * step;
+        const end = (i + 1) * step;
+        stops.push(`${color} ${start}%`, `${color} ${end}%`);
+      });
+      return `style="background:linear-gradient(90deg, ${stops.join(', ')})"`;
+    }
+    if (entry.dominantColor && totalMinutes > 0) {
+      return `style="background:${hexToRgba(entry.dominantColor, alphaForMinutes(totalMinutes))}"`;
+    }
+    if (entry.dominantColor) return `style="background:${entry.dominantColor}"`;
+    return '';
+  }
+
+  function cellTitleFor(entry, todayStr) {
+    if (entry.date > todayStr) return entry.date;
+    const totalMinutes = entry.totalMinutes || entry.minutes;
+    if (totalMinutes <= 0) return `${entry.date}: no activity`;
+    const tops = (entry.topSubjects && entry.topSubjects.length) ? entry.topSubjects : null;
+    const lines = tops && tops.length
+      ? tops.map((sub) => `${sub.subjectName} — ${fmtHoursShort(sub.ms)}`)
+      : [];
+    lines.push(`${entry.date}: ${fmtHoursShort(totalMinutes * 60000)} total`);
+    return lines.join('\n');
+  }
+
   async function renderCalendarTab() {
     const body = document.getElementById('study-tab-body');
     body.innerHTML = `<div class="empty-state">Loading…</div>`;
@@ -1184,6 +1245,15 @@
     }
     const cells = buildHeatmapCells(stats.heatmap);
     const todayStr = localTodayStr();
+    // v1.4.0: pull the to-do list so (a) days with completed to-dos get
+    // a small checkmark dot, and (b) the day panel + schedule-at-the-
+    // bottom form below have the data they need. Failures are tolerated -
+    // the calendar itself still renders.
+    try { todosCache = await api('/api/todos'); } catch (e) { /* keep last cache */ }
+    const todosDoneByDate = {};
+    for (const t of todosCache.todos) {
+      if (t.done && t.doneAt) todosDoneByDate[t.doneAt] = (todosDoneByDate[t.doneAt] || 0) + 1;
+    }
     // v1.3.7: opening the Calendar tab auto-selects today (when viewing
     // the current year) so the day panel is never empty on first load and
     // the "today" cell is highlighted right away. Resets to null when
@@ -1216,7 +1286,7 @@
         <span class="study-year-label">${calendarYear}</span>
         <button id="study-cal-next-year">▶</button>
       </div>
-      <div class="study-page-sub">Each day is colored by the subject you spent the most time on (the stronger the color, the more time that day). Click a day to see its breakdown.</div>
+      <div class="study-page-sub">Each day is colored by the subject(s) you spent the most time on - when two subjects tie for the top (e.g. 2h Literature and 2h Geography), the day's box is split into both colors. Hover a day to see which subject is done most; click it for the full breakdown. Days with a completed to-do show a green dot.</div>
       <div class="study-heatmap-scroll">
         <div class="study-heatmap-months">${monthLabels.map((l) => `<div>${l}</div>`).join('')}</div>
         <div class="study-heatmap-body">
@@ -1228,19 +1298,18 @@
               const isToday = entry.date === todayStr;
               const isSelected = selectedDay && selectedDay.date === entry.date;
               const totalMinutes = entry.totalMinutes || entry.minutes;
-              const title = isFuture ? entry.date
-                : totalMinutes > 0 ? `${entry.date}: ${fmtHoursShort(totalMinutes * 60000)} total`
-                : `${entry.date}: no activity`;
-              // v1.3.7: a day with a dominant subject is colored by that
-              // subject, with the color's INTENSITY scaled by how much
-              // total time (Study + Rec + Paper) the day had - faint tint
-              // for a few minutes, full strength for hours. Days with no
-              // activity keep the purple level-scale as before.
-              const cellStyle = entry.dominantColor && totalMinutes > 0
-                ? `style="background:${hexToRgba(entry.dominantColor, alphaForMinutes(totalMinutes))}"`
-                : (entry.dominantColor ? `style="background:${entry.dominantColor}"` : '');
+              // v1.4.0: title now lists every top subject by name with
+              // its time (ties included) - the hover answer to "which
+              // subject did I do the most that day".
+              const title = isFuture ? entry.date : cellTitleFor(entry, todayStr);
+              // v1.3.7 + v1.4.0: color intensity scales with total time;
+              // a day with 2+ subjects tied at the top gets its box SPLIT
+              // into one vertical slice per tied subject (see
+              // cellBackgroundFor above) instead of showing only one.
+              const cellStyle = cellBackgroundFor(entry, totalMinutes);
               const levelAttr = !entry.dominantColor ? `data-level="${entry.level}"` : '';
-              return `<div class="study-heat-cell${isFuture ? ' future' : ''}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}" data-date="${entry.date}" ${levelAttr} ${cellStyle} title="${escapeHtml(title)}"></div>`;
+              const todoDot = todosDoneByDate[entry.date] ? ' has-todo' : '';
+              return `<div class="study-heat-cell${isFuture ? ' future' : ''}${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}${todoDot}" data-date="${entry.date}" ${levelAttr} ${cellStyle} title="${escapeHtml(title)}"></div>`;
             }).join('')}
           </div>
         </div>
@@ -1255,9 +1324,38 @@
         More</div>
       </div>
       <div id="study-daylog-panel"></div>
+      <div class="study-daylog-panel study-todo-schedule">
+        <div class="study-daylog-panel-title">Schedule a to-do</div>
+        <div class="study-todo-schedule-row">
+          <input type="text" id="study-todo-schedule-text" maxlength="500" placeholder="e.g. Do new Sinhala lesson from that book" />
+          <input type="date" id="study-todo-schedule-date" value="${todayStr}" />
+          <button class="btn" id="study-todo-schedule-add">Add</button>
+        </div>
+        <div class="hint">Shows up here on its day, on the To-Do list, and (if enabled) on today's list in Standby Mode. Ticking it off later puts a green dot on its calendar day.</div>
+      </div>
     `;
     document.getElementById('study-cal-prev-year').addEventListener('click', () => { calendarYear--; selectedDay = null; renderCalendarTab(); });
     document.getElementById('study-cal-next-year').addEventListener('click', () => { calendarYear++; selectedDay = null; renderCalendarTab(); });
+    // v1.4.0: "Schedule a to-do" form at the bottom of the Calendar tab.
+    // Re-uses the same add path as the To-Do subsystem (POST /api/todos)
+    // with a dueDate, then refreshes the cache + re-renders so the new
+    // to-do appears in the selected day's panel and the dot map.
+    const scheduleText = document.getElementById('study-todo-schedule-text');
+    const scheduleDate = document.getElementById('study-todo-schedule-date');
+    const scheduleBtn = document.getElementById('study-todo-schedule-add');
+    async function addScheduledTodo() {
+      const text = scheduleText.value.trim();
+      if (!text) { showToast('Type something to add first.'); return; }
+      try {
+        await api('/api/todos', { method: 'POST', body: { text, dueDate: scheduleDate.value || null } });
+        scheduleText.value = '';
+        showToast('To-do scheduled ✅');
+        todosCache = await api('/api/todos');
+        renderCalendarTab();
+      } catch (e) { showToast(e.message); }
+    }
+    scheduleBtn.addEventListener('click', addScheduledTodo);
+    scheduleText.addEventListener('keydown', (e) => { if (e.key === 'Enter') addScheduledTodo(); });
     document.getElementById('study-heatmap-grid').querySelectorAll('.study-heat-cell').forEach((cell) => {
       if (cell.classList.contains('future') || !cell.dataset.date) return;
       cell.addEventListener('click', () => {
@@ -1278,6 +1376,11 @@
   // view, via buildDayStatsHtml()/GET /api/study/stats/day/:date) right
   // here in the Calendar tab, not just a plain "you studied N minutes"
   // line.
+  // v1.4.0: the panel also shows that day's to-dos - "Done that day"
+  // (ticked-off to-dos whose doneAt is this date: the calendar answer to
+  // "what did I do that day") and "Scheduled that day" (not-yet-ticked
+  // to-dos due on this date), each with tick/un-tick + delete, plus a
+  // one-line quick-add that schedules straight onto this date.
   async function renderDaylogPanel() {
     const panel = document.getElementById('study-daylog-panel');
     if (!selectedDay) { panel.innerHTML = ''; return; }
@@ -1285,7 +1388,10 @@
     panel.innerHTML = `<div class="empty-state">Loading…</div>`;
     let day;
     try {
-      day = await api(`/api/study/stats/day/${date}`);
+      [day, todosCache] = await Promise.all([
+        api(`/api/study/stats/day/${date}`),
+        api('/api/todos'),
+      ]);
     } catch (e) {
       panel.innerHTML = `<div class="empty-state">Could not load: ${escapeHtml(e.message)}</div>`;
       return;
@@ -1294,12 +1400,71 @@
     // flight - don't clobber whatever's now showing with a stale reply.
     if (!selectedDay || selectedDay.date !== date) return;
 
+    const doneToday = todosCache.todos.filter((t) => t.done && t.doneAt === date);
+    const dueToday = todosCache.todos.filter((t) => !t.done && t.dueDate === date);
+    const todoSection = `
+      <div class="study-todo-section">
+        <h3 class="study-todo-section-title">Done this day <span class="hint">(${doneToday.length} ticked off)</span></h3>
+        ${doneToday.length ? doneToday.map((t) => `
+          <div class="study-todo-row done" data-id="${t.id}">
+            <span class="study-todo-tick">✔</span>
+            <span class="study-todo-text">${escapeHtml(t.text)}</span>
+            <button class="study-todo-uncheck" title="Untick">↩</button>
+            <button class="study-todo-del" title="Delete">✕</button>
+          </div>
+        `).join('') : '<div class="hint">Nothing ticked off on this day yet - go do it!</div>'}
+        <h3 class="study-todo-section-title" style="margin-top:12px;">Scheduled this day <span class="hint">(${dueToday.length} to do)</span></h3>
+        ${dueToday.length ? dueToday.map((t) => `
+          <div class="study-todo-row" data-id="${t.id}">
+            <button class="study-todo-check" title="Tick off - done today">✔</button>
+            <span class="study-todo-text">${escapeHtml(t.text)}</span>
+            <button class="study-todo-del" title="Delete">✕</button>
+          </div>
+        `).join('') : '<div class="hint">Nothing scheduled for this day.</div>'}
+        <div class="study-todo-add-row">
+          <input type="text" id="study-day-todo-text" maxlength="500" placeholder="Quick add a to-do for ${date}…" />
+          <button class="btn" id="study-day-todo-add">Add</button>
+        </div>
+      </div>
+    `;
+
     panel.innerHTML = `
       <div class="study-daylog-panel">
         <div class="study-daylog-panel-title">${date}</div>
         ${buildDayStatsHtml(day, `on ${date}`)}
+        ${todoSection}
       </div>
     `;
+    const quickText = document.getElementById('study-day-todo-text');
+    const quickBtn = document.getElementById('study-day-todo-add');
+    if (quickBtn) {
+      const quickAdd = async () => {
+        const text = quickText.value.trim();
+        if (!text) { showToast('Type something to add first.'); return; }
+        try {
+          await api('/api/todos', { method: 'POST', body: { text, dueDate: date } });
+          showToast('To-do added for this day ✅');
+          renderCalendarTab();
+        } catch (e) { showToast(e.message); }
+      };
+      quickBtn.addEventListener('click', quickAdd);
+      quickText.addEventListener('keydown', (e) => { if (e.key === 'Enter') quickAdd(); });
+    }
+    panel.querySelectorAll('.study-todo-row').forEach((row) => {
+      const id = row.dataset.id;
+      const uncheckBtn = row.querySelector('.study-todo-uncheck');
+      if (uncheckBtn) uncheckBtn.addEventListener('click', async () => {
+        try { await api(`/api/todos/${id}`, { method: 'PATCH', body: { done: false } }); renderCalendarTab(); } catch (e) { showToast(e.message); }
+      });
+      const checkBtn = row.querySelector('.study-todo-check');
+      if (checkBtn) checkBtn.addEventListener('click', async () => {
+        try { await api(`/api/todos/${id}`, { method: 'PATCH', body: { done: true } }); showToast('Ticked off ✅'); renderCalendarTab(); } catch (e) { showToast(e.message); }
+      });
+      const delBtn = row.querySelector('.study-todo-del');
+      if (delBtn) delBtn.addEventListener('click', async () => {
+        try { await api(`/api/todos/${id}`, { method: 'DELETE' }); renderCalendarTab(); } catch (e) { showToast(e.message); }
+      });
+    });
     retriggerTabAnim();
   }
 
