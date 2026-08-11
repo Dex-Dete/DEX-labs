@@ -619,6 +619,59 @@ landing-page/                  the Landing Page - own Node process, own
   back to the user - they already have it. If something is genuinely
   ambiguous, ask; otherwise just ship the diff.
 
+## v1.5.0 (for future sessions)
+
+AirDrop clipboard feature: text pasted on a phone shows up on the PC
+for 30 minutes, newest first, copyable from the machine, auto-copied
+to the PC's own clipboard, plus an optional Apple-AirDrop-style page
+toggled from Settings. Short version + rules for future work:
+
+1. **Clips are their own tiny store, not part of airdrop-store.**
+   `lib/clips-store.js` -> `data/clips.json` (items: `id`, `text`,
+   `source`, `createdAt`, `expiresAt`; TTL_MS = 30 min). Same
+   in-memory-cache + writeQueue pattern as every other store. Router
+   lives in `routes/airdrop.js` (same file as files, same
+   `/api/airdrop` prefix): GET `/clips` (newest first + `msRemaining`),
+   POST `/clips` (trim + slice 2000, 400 on empty text), DELETE
+   `/clips/:id`. Cleanup runs in the SAME once-a-minute sweep as
+   AirDrop files in `server.js` (two adjacent `setInterval` blocks) -
+   keep them together if you add more TTL'd things.
+2. **The PC clipboard auto-copy is fire-and-forget on purpose.**
+   `copyClipToPcClipboard()` in `routes/airdrop.js`: Windows-only,
+   gated on config `airdropAutoCopy` (default true), stages the text
+   to a temp file and hands `Set-Clipboard` a FILE PATH so no amount
+   of user text can break the command line, uses async `spawn` (never
+   `spawnSync` - a hung clipboard must not stall an HTTP request).
+   Never await it in a route.
+3. **`airdropStyle` is presentation-only.** Config keys added in
+   `lib/config-store.js` DEFAULTS: `airdropStyle` ('classic' |
+   'apple', default 'classic'), `airdropAutoCopy` (default true).
+   `routes/settings.js` `publicSettings()` returns both; the PUT
+   handler only applies them when explicitly present in the body (so
+   older clients saving just the old fields can't clobber them).
+   `public/js/airdrop.js` reads them from GET /api/settings on every
+   visit - no restart needed to flip the style. Files and clips share
+   the exact same backend in both styles; if you change the frontend,
+   keep both render paths working off the same data.
+4. **Frontend lives entirely in `public/js/airdrop.js`** (one module,
+   both styles - `pageStyle` branch in `render()`, clips rendered by
+   `renderClips()`/`renderAppleClips()`, countdowns ticked by the
+   existing 1s timer, refresh by the 15s poll). `public/css/airdrop.css`
+   gained the clip + apple classes (`airdrop-clips-*`, `apple-*`) -
+   all prefixed, nothing shared with lesson-tracker CSS. The Settings
+   page toggles are in `public/js/settings.js` (AirDrop panel) and go
+   through the existing `PUT /api/settings` save handler.
+5. **Test clips write to the real PC clipboard** - when boot-testing,
+   POSTing a clip puts its text on whatever machine is running the
+   server. Harmless but worth knowing (and the test text lingers after
+   you delete the clip). PowerShell 5.1's `ConvertFrom-Json` chokes on
+   the deep `package-lock.json` - edit it with node, not PowerShell.
+6. **`db.js`'s `update()` was hardened in v1.5.0** (it had been sitting
+   uncommitted in the working tree): callers now get the real promise
+   (errors surface to the requester), and the internal chain is kept
+   alive with a caught fallback so one failed write can't wedge the
+   queue. Don't revert this to the old swallow-and-chain behavior.
+
 ## v1.4.0 (for future sessions)
 
 To-Do subsystem + calendar tie fix + Standby Mode to-do card. Short version

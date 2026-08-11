@@ -11,8 +11,12 @@ const express = require('express');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
+const { spawn } = require('child_process');
 
 const store = require('../lib/airdrop-store');
+const clipsStore = require('../lib/clips-store');
+const config = require('../lib/config-store');
 
 function sanitizeFilename(name) {
   return name.replace(/[/\\?%*:|"<>]/g, '_').slice(0, 200);
@@ -112,6 +116,75 @@ router.get('/files/:id/download', async (req, res) => {
 
 router.delete('/files/:id', async (req, res) => {
   await store.removeById(req.params.id);
+  res.json({ ok: true });
+});
+
+// ---------------- Clipboard clips ("AirCopy") ---------------- (v1.5.0)
+// The "paste a text on your phone, it appears on the PC for 30
+// minutes" half of AirDrop. Same self-destruct idea as files, just a
+// shorter TTL (text is meant to be copied off, not archived). Newest
+// clip shows first, on every device, below the file list.
+
+// v1.5.0: after a new clip arrives, put it straight onto the clipboard
+// of the PC running DEX Labs (the "client that is running DEX Labs" in
+// the brief). Windows-only (Set-Clipboard is PowerShell) and gated
+// behind the airdropAutoCopy setting - the text is staged to a temp
+// file and read back by PowerShell, so no amount of quoting/escaping
+// in the text can ever break the command line.
+function copyClipToPcClipboard(text) {
+  if (process.platform !== 'win32') return;
+  const cfg = config.get();
+  if (cfg.airdropAutoCopy === false) return;
+  const tmpFile = path.join(os.tmpdir(), `dexclip_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.txt`);
+  try {
+    fs.writeFileSync(tmpFile, text, 'utf-8');
+  } catch (e) {
+    console.error('[airdrop-clips] could not stage clip for PC clipboard:', e.message);
+    return;
+  }
+  const ps = spawn('powershell.exe', [
+    '-NoProfile', '-STA', '-WindowStyle', 'Hidden', '-Command',
+    `$t = [System.IO.File]::ReadAllText('${tmpFile.replace(/'/g, "''")}', [System.Text.Encoding]::UTF8); Set-Clipboard -Value $t`,
+  ], { stdio: 'ignore', windowsHide: true });
+  ps.on('exit', () => {
+    try { fs.unlinkSync(tmpFile); } catch (e) { /* already gone */ }
+  });
+  ps.on('error', (e) => console.error('[airdrop-clips] PC clipboard copy failed:', e.message));
+}
+
+router.get('/clips', async (req, res) => {
+  const clips = await clipsStore.listActive();
+  const now = Date.now();
+  res.json({
+    clips: clips.map((c) => ({
+      id: c.id,
+      text: c.text,
+      source: c.source,
+      createdAt: c.createdAt,
+      expiresAt: c.expiresAt,
+      msRemaining: Math.max(0, c.expiresAt - now),
+    })),
+  });
+});
+
+router.post('/clips', async (req, res) => {
+  const { text, source } = req.body || {};
+  if (typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ error: 'Nothing to copy - send some text.' });
+  }
+  const clean = text.trim().slice(0, 2000);
+  try {
+    const clip = await clipsStore.addClip({ text: clean, source });
+    copyClipToPcClipboard(clean);
+    res.status(201).json(clip);
+  } catch (e) {
+    res.status(500).json({ error: (e && e.message) || 'Could not save the clip.' });
+  }
+});
+
+router.delete('/clips/:id', async (req, res) => {
+  const removed = await clipsStore.removeById(req.params.id);
+  if (!removed) return res.status(404).json({ error: 'Clip not found or already expired.' });
   res.json({ ok: true });
 });
 

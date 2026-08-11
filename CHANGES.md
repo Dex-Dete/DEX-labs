@@ -1,3 +1,82 @@
+# DEX Labs v1.5.0 - Changes
+
+User-requested AirDrop clipboard feature: paste a text on your phone
+and it appears on the PC for 30 minutes - copyable from the machine,
+auto-copied to the PC's own clipboard, with an optional Apple-AirDrop-
+style page you can toggle on in Settings.
+
+**1. Clipboard clips ("AirCopy").** The AirDrop page (and the Apple
+style, see #3) now has a "Clipboard" section BELOW the file list:
+- Paste (or type) a text on your phone, tap **Send to DEX Labs** - it
+  shows up on the PC and every other device on the WiFi, newest first,
+  for **30 minutes**, then deletes itself (same self-destruct idea as
+  the files, shorter TTL because text is meant to be copied off, not
+  archived).
+- Each clip shows its sender ("iPhone"/"Android"/"PC" - auto-detected
+  from the device's browser, cosmetic), the full text, a live
+  countdown of how long it still has, a **Copy** button (one tap puts
+  the text on THAT device's clipboard - so you can grab it from any
+  phone/PC, not just the server), and an ✕ to delete it right away.
+- The composer also has **Paste from this device** - reads the phone's
+  clipboard straight into the box on browsers that allow it.
+- Backed by a new store `lib/clips-store.js` -> `data/clips.json`
+  (same isolation pattern as every other store) and new endpoints on
+  `routes/airdrop.js`: `GET /api/airdrop/clips` (active clips, newest
+  first, with `msRemaining`), `POST /api/airdrop/clips`
+  (`{ text, source }`, trimmed, max 2000 chars, 400 on empty), and
+  `DELETE /api/airdrop/clips/:id`. Clips are swept once a minute by
+  `server.js` alongside the existing AirDrop file sweep (plus once at
+  startup).
+
+**2. Auto-copy to the PC running DEX Labs.** The user's original ask:
+"copy the latest airdrop message to the client that is running DEX
+Labs". When a new clip arrives, `routes/airdrop.js`'s
+`copyClipToPcClipboard()` puts the text straight onto the server PC's
+own clipboard (PowerShell `Set-Clipboard`, Windows-only, text staged
+through a temp file so no quoting can ever break it, fire-and-forget
+so it can never slow down a request). On by default
+(`airdropAutoCopy: true`), toggleable in Settings > AirDrop.
+
+**3. Apple AirDrop style (Settings > AirDrop page style).** The
+optional MacBook-like presentation, per "have actual AirDrop working
+like the Mac does... with an option in Settings to toggle it":
+- **Classic** (default) - the existing layout, unchanged, now with the
+  Clipboard section below the file list.
+- **Apple** - a macOS-AirDrop-style window: a device "radar" showing
+  **This PC (DEX Labs)** as the receiving device, incoming clips as
+  chat-style bubbles from the phone (newest highlighted), the file
+  dropzone + list inside a Mac-like share window, and a composer at
+  the bottom.
+- It's purely presentation - files and clips are the exact same
+  backend data in both styles, so switching back and forth can never
+  lose anything. The setting (`airdropStyle`, default `'classic'`) is
+  a new config key saved via the existing `PUT /api/settings` (which
+  now also accepts `airdropStyle` and `airdropAutoCopy`); the AirDrop
+  page fetches it from `GET /api/settings` on every visit, no restart
+  needed.
+
+**4. Also in this release: `db.js` writeQueue hardening (a change that
+was sitting uncommitted in the working tree since v1.4.0).**
+`update()` now hands callers the real promise - so a failed mutation
+surfaces as an error to the requester instead of being swallowed -
+while the internal chain stays alive via a caught fallback, so one
+failed write can no longer wedge the queue for every later request.
+Same pattern the newer stores (`clips-store`, `sbm-store`, etc.)
+already use.
+
+No data migration needed - `data/clips.json` is created empty on first
+use, and both new config keys have defaults.
+
+**Testing performed (this session):** booted the work copy on a spare
+port with a fresh data dir; POSTed clips (201), verified GET returns
+newest-first with ~30 min `msRemaining`, DELETE removed them, empty
+text rejected with 400, `PUT /api/settings` saved `airdropStyle` +
+`airdropAutoCopy`, and `GET /api/settings` returns both. One caveat:
+the actual PowerShell `Set-Clipboard` on the PC and the visual layout
+on real phone/iPad screens were validated by the user on the live
+machine after shipping, not by Claude - same standing rule as other
+Windows/device-specific pieces.
+
 # DEX Labs v1.4.0 - Changes
 
 User-requested To-Do list + calendar bug fix. New subsystem plus two

@@ -40,13 +40,14 @@ function write(data) {
 // Serializes all read-modify-write operations so two near-simultaneous
 // requests can't clobber each other.
 function update(mutator) {
-  writeQueue = writeQueue.then(() => {
+  const result = writeQueue.then(() => {
     const data = read();
     const result = mutator(data);
     write(data);
     return result;
   });
-  return writeQueue;
+  writeQueue = result.catch(() => {});
+  return result;
 }
 
 function genId(prefix) {

@@ -29,6 +29,10 @@ function publicSettings() {
     setupComplete: !!cfg.setupComplete,
     airdropMaxUsageGB: cfg.airdropMaxUsageGB,
     airdropSaveLocation: cfg.airdropSaveLocation || '',
+    // v1.5.0: AirDrop page style ('classic' | 'apple') + whether new
+    // clips auto-copy to the PC's clipboard.
+    airdropStyle: cfg.airdropStyle === 'apple' ? 'apple' : 'classic',
+    airdropAutoCopy: cfg.airdropAutoCopy !== false,
   };
 }
 
@@ -188,7 +192,7 @@ router.get('/', (req, res) => {
 });
 
 router.put('/', (req, res) => {
-  const { airdropMaxUsageGB, airdropSaveLocation } = req.body || {};
+  const { airdropMaxUsageGB, airdropSaveLocation, airdropStyle, airdropAutoCopy } = req.body || {};
 
   const gb = Number(airdropMaxUsageGB);
   if (!Number.isFinite(gb) || gb <= 0 || gb > 2000) {
@@ -213,11 +217,23 @@ router.put('/', (req, res) => {
     }
   }
 
-  const saved = config.set({
+  const patch = {
     airdropMaxUsageGB: gb,
     airdropSaveLocation: location,
     setupComplete: true,
-  });
+  };
+  // v1.5.0: optional style + auto-copy toggles (must be sent explicitly
+  // to avoid clobbering them when older clients save only the old
+  // fields).
+  if (airdropStyle !== undefined) {
+    if (airdropStyle !== 'classic' && airdropStyle !== 'apple') {
+      return res.status(400).json({ error: "airdropStyle must be 'classic' or 'apple'." });
+    }
+    patch.airdropStyle = airdropStyle;
+  }
+  if (airdropAutoCopy !== undefined) patch.airdropAutoCopy = !!airdropAutoCopy;
+
+  const saved = config.set(patch);
 
   res.json(publicSettings());
 });

@@ -29,6 +29,7 @@ const dataDirWasEmptyAtBoot = !fs.existsSync(DATA_DIR_FOR_BOOT_CHECK)
   || fs.readdirSync(DATA_DIR_FOR_BOOT_CHECK).filter((f) => f.endsWith('.json')).length === 0;
 
 const airdropStore = require('./lib/airdrop-store');
+const clipsStore = require('./lib/clips-store');
 const timersStore = require('./lib/timers-store');
 const ytdownloadStore = require('./lib/ytdownload-store');
 const studyStore = require('./lib/study-store');
@@ -325,6 +326,14 @@ server.timeout = 0;
 airdropStore.cleanupExpired().catch((e) => console.error('AirDrop startup cleanup error:', e));
 setInterval(() => {
   airdropStore.cleanupExpired().catch((e) => console.error('AirDrop cleanup error:', e));
+}, 60 * 1000).unref();
+
+// v1.5.0: AirDrop clipboard clips self-destruct after 30 minutes - swept
+// in the same once-a-minute pass as the AirDrop files (see
+// lib/clips-store.js).
+clipsStore.cleanupExpired().catch((e) => console.error('Clips startup cleanup error:', e));
+setInterval(() => {
+  clipsStore.cleanupExpired().catch((e) => console.error('Clips cleanup error:', e));
 }, 60 * 1000).unref();
 
 // Timers/alarms are server-authoritative - check every second for any

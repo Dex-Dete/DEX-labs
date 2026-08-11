@@ -212,6 +212,23 @@
         </div>
         <div class="hint" style="margin:-6px 0 18px;">Leave blank to use DEX Labs' own <code>uploads-airdrop</code> folder. To pick a folder with a browse dialog instead of typing a path, use the tray icon's Settings menu on the PC itself.</div>
 
+        <div class="form-row" style="margin-bottom:8px;">
+          <label style="display:flex; flex-direction:column; gap:6px; flex:1; min-width:220px;">
+            <span>AirDrop page style</span>
+            <select id="set-airdrop-style">
+              <option value="classic" ${current.airdropStyle === 'classic' ? 'selected' : ''}>Classic (current layout)</option>
+              <option value="apple" ${current.airdropStyle === 'apple' ? 'selected' : ''}>Apple AirDrop style (MacBook-like)</option>
+            </select>
+          </label>
+        </div>
+        <div class="hint" style="margin:0 0 12px;">Same files and clips either way - this only changes how the AirDrop page looks. Switch back anytime without losing anything.</div>
+
+        <label style="display:flex; align-items:center; gap:8px; padding:6px 0;">
+          <input type="checkbox" id="set-airdrop-autocopy" ${current.airdropAutoCopy !== false ? 'checked' : ''} />
+          <span>Auto-copy the newest pasted text to this PC's clipboard</span>
+        </label>
+        <div class="hint" style="margin:0 0 12px;">When someone pastes a text clip on a phone, it's copied straight onto the PC running DEX Labs - paste it anywhere on the PC immediately.</div>
+
         <button class="btn" id="set-save-btn">Save settings</button>
         <span id="set-save-status" class="hint" style="margin-left:10px;"></span>
       </div>
@@ -438,7 +455,12 @@
         statusEl.textContent = 'Saving…';
         await api('/api/settings', {
           method: 'PUT',
-          body: { airdropMaxUsageGB: maxGb, airdropSaveLocation: saveLocation },
+          body: {
+            airdropMaxUsageGB: maxGb,
+            airdropSaveLocation: saveLocation,
+            airdropStyle: document.getElementById('set-airdrop-style').value,
+            airdropAutoCopy: document.getElementById('set-airdrop-autocopy').checked,
+          },
         });
         showToast('Settings saved');
         if (forced) { await afterSetupStepSaved(); } else { render(); }
