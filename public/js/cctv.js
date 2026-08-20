@@ -284,6 +284,38 @@
 
   // ---------------- Fullscreen viewer ----------------
 
+  // v1.6.2: insider-proof subsystem switcher for the full-screen viewer.
+  // The top bar also floats above the overlay thanks to the CSS in
+  // cctv.css - but this menu lives INSIDE the overlay itself, so
+  // switching to another subsystem (e.g. back to a running Study
+  // session) works no matter what, on any browser, without depending on
+  // stacking order. Clicking an entry navigates to that subsystem's
+  // hash; route() then calls CCTV.cleanup(), which closes the viewer
+  // and stops the stream.
+  async function renderSwitchMenu(menuEl) {
+    try {
+      const res = await fetch('/api/settings/subsystems');
+      const registry = await res.json();
+      const hidden = new Set(registry.hiddenSubsystems || []);
+      const items = (registry.subsystems || [])
+        .filter((s) => !hidden.has(s.id))
+        .map((s) => `
+          <button class="cctv-fs-switch-item" data-hash="${escapeHtml(s.hash)}">
+            <span class="nav-icon">${escapeHtml(s.icon || '')}</span><span>${escapeHtml(s.label)}</span>
+          </button>`)
+        .join('') + `
+          <button class="cctv-fs-switch-item" data-hash="#/settings">
+            <span class="nav-icon">⚙</span><span>Settings</span>
+          </button>`;
+      menuEl.innerHTML = items;
+      menuEl.querySelectorAll('.cctv-fs-switch-item').forEach((btn) => {
+        btn.addEventListener('click', () => { location.hash = btn.dataset.hash; });
+      });
+    } catch (e) {
+      menuEl.innerHTML = '<div style="padding:8px;font-size:0.8rem;color:var(--ink-soft);">Could not load subsystems.</div>';
+    }
+  }
+
   function openFullscreen(channelId) {
     if (fsOpen) return;
     const ch = (status && status.channels || []).find((c) => c.id === channelId);
@@ -300,6 +332,10 @@
       <div class="cctv-fs-top">
         <button class="cctv-fs-close" id="cctv-fs-close" aria-label="Close">✕</button>
         <span class="cctv-fs-name">${escapeHtml(ch.name)}</span>
+        <span class="cctv-fs-switch">
+          <button class="btn secondary" id="cctv-fs-switch-btn">Switch</button>
+          <div class="cctv-fs-switch-menu" id="cctv-fs-switch-menu"></div>
+        </span>
         <button class="btn secondary" id="cctv-fs-snap">Snap</button>
         <button class="btn secondary" id="cctv-fs-mode">HD / SD</button>
       </div>
@@ -318,6 +354,8 @@
     img.addEventListener('load', () => nosignal.classList.remove('show'));
     img.addEventListener('error', () => {
       nosignal.classList.add('show');
+      // v1.6.1: never reconnect while the tab is hidden - see pauseStreams().
+      if (document.hidden) return;
       clearTimeout(openFullscreen._t);
       openFullscreen._t = setTimeout(() => {
         img.src = `/api/cctv/stream/${ch.id}?mode=${isMain ? 'main' : 'sub'}&w=1280&fps=12&t=${Date.now()}`;
@@ -328,6 +366,21 @@
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay || e.target.classList.contains('cctv-fs-video')) closeFullscreen();
     });
+
+    // v1.6.2 Switch menu - opens lazily on first tap.
+    const switchBtn = overlay.querySelector('#cctv-fs-switch-btn');
+    const switchMenu = overlay.querySelector('#cctv-fs-switch-menu');
+    switchBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      switchMenu.classList.toggle('show');
+      if (switchMenu.classList.contains('show') && !switchMenu.dataset.loaded) {
+        switchMenu.dataset.loaded = '1';
+        renderSwitchMenu(switchMenu);
+      }
+    });
+    switchMenu.addEventListener('click', (e) => e.stopPropagation());
+    overlay._closeMenu = () => switchMenu.classList.remove('show');
+    document.addEventListener('click', overlay._closeMenu);
 
     modeBtn.addEventListener('click', () => {
       isMain = !isMain;
@@ -367,6 +420,7 @@
     const overlay = document.querySelector('.cctv-fs');
     if (!overlay) return;
     if (overlay._keyHandler) window.removeEventListener('keydown', overlay._keyHandler);
+    if (overlay._closeMenu) document.removeEventListener('click', overlay._closeMenu);
     // Clearing the <img> src closes the MJPEG socket immediately plus
     // removing the node - server sees the socket close and kills ffmpeg.
     const img = overlay.querySelector('img');

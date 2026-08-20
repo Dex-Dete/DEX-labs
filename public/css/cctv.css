@@ -192,14 +192,61 @@
 }
 .cctv-fs-nosignal.show { display: flex; }
 
-/* v1.6.1: with the full-screen viewer open, keep the top bar ABOVE it
-   (cctv.js toggles body.cctv-fs-open) so you can jump to another
-   subsystem while watching - the viewer closes itself as soon as a
-   navigation happens (see CCTV.cleanup). The mobile nav's backdrop sits
-   just under the bar but still over the video, so the slide-in menu
-   keeps working too. */
-body.cctv-fs-open .topbar { z-index: 10000; }
-body.cctv-fs-open .nav-backdrop { z-index: 9998; }
+/* v1.6.1/1.6.2: with the full-screen viewer open, keep the top bar ABOVE
+   it so you can jump to another subsystem while watching - the viewer
+   closes itself as soon as a navigation happens (see CCTV.cleanup).
+   Two selector sets: body.cctv-fs-open (set by cctv.js running from a
+   freshly-loaded page) and body:has(.cctv-fs) as a pure-CSS fallback
+   that also covers a tab that's been open since BEFORE the JS update
+   (old JS still creates the same .cctv-fs overlay, so the CSS alone
+   lifts the top bar without needing any new code to run). */
+body.cctv-fs-open .topbar,
+body:has(.cctv-fs) .topbar { z-index: 10000; }
+body.cctv-fs-open .nav-backdrop,
+body:has(.cctv-fs) .nav-backdrop { z-index: 9998; }
+
+/* v1.6.2: the viewer's own "Switch" menu - subsystem chips rendered
+   inside the overlay itself, so switching works with zero dependence on
+   stacking order (see the #cctv-fs-switch-menu code in cctv.js). */
+.cctv-fs-switch {
+  position: relative;
+}
+.cctv-fs-switch-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 3;
+  min-width: 190px;
+  max-width: min(84vw, 320px);
+  background: var(--card);
+  border: 1px solid var(--paper-line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.cctv-fs-switch-menu.show { display: flex; }
+.cctv-fs-switch-menu .cctv-fs-switch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.cctv-fs-switch-menu .cctv-fs-switch-item:hover { background: rgba(31, 44, 76, 0.08); }
+.cctv-fs-switch-menu .cctv-fs-switch-item .nav-icon { font-size: 1.05rem; }
 
 /* ---------- Empty / setup states ---------- */
 .cctv-empty {
