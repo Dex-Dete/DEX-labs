@@ -192,6 +192,15 @@
 }
 .cctv-fs-nosignal.show { display: flex; }
 
+/* v1.6.1: with the full-screen viewer open, keep the top bar ABOVE it
+   (cctv.js toggles body.cctv-fs-open) so you can jump to another
+   subsystem while watching - the viewer closes itself as soon as a
+   navigation happens (see CCTV.cleanup). The mobile nav's backdrop sits
+   just under the bar but still over the video, so the slide-in menu
+   keeps working too. */
+body.cctv-fs-open .topbar { z-index: 10000; }
+body.cctv-fs-open .nav-backdrop { z-index: 9998; }
+
 /* ---------- Empty / setup states ---------- */
 .cctv-empty {
   display: flex;

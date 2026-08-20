@@ -239,12 +239,40 @@
     img.addEventListener('error', () => {
       overlay.classList.add('show');
       bar.classList.remove('live');
+      // v1.6.1: never reconnect while the tab is hidden - see pauseStreams().
+      if (document.hidden) return;
       clearTimeout(wireTileImg._t);
       wireTileImg._t = setTimeout(() => {
         img.src = img.getAttribute('data-src') + '&t=' + Date.now();
       }, 4000);
     });
   }
+
+  // v1.6.1: every CCTV feed is a long-held MJPEG socket, and browsers
+  // cap connections per host (~6). While THIS tab stays visible that's
+  // fine, but the moment another window/tab opens the same site (e.g.
+  // Study in a second window), those held-open sockets starve it - its
+  // API calls queue behind the video streams and the site feels frozen.
+  // So: when this tab goes hidden, drop the <img> srcs (closing the
+  // sockets - the server sees each socket close and kills its ffmpeg);
+  // when it comes back, restore them. Grid and full-screen viewer both.
+  function pauseStreams() {
+    document.querySelectorAll('.cctv-tile img, .cctv-fs img').forEach((img) => {
+      if (img.src && !img.src.startsWith('about:')) {
+        img.dataset.savedSrc = img.src;
+        img.src = '';
+      }
+    });
+  }
+  function resumeStreams() {
+    document.querySelectorAll('.cctv-tile img, .cctv-fs img').forEach((img) => {
+      if (img.dataset.savedSrc && !img.src) img.src = img.dataset.savedSrc;
+    });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseStreams();
+    else resumeStreams();
+  });
 
   function wireTile(tile) {
     const id = Number(tile.dataset.id);
@@ -261,6 +289,10 @@
     const ch = (status && status.channels || []).find((c) => c.id === channelId);
     if (!ch) return;
     fsOpen = true;
+    // v1.6.1: leave a marker on <body> so cctv.css can keep the top bar
+    // above the viewer - you can jump to another subsystem without
+    // closing it by hand; navigation closes it (see cleanup()).
+    document.body.classList.add('cctv-fs-open');
 
     const overlay = document.createElement('div');
     overlay.className = 'cctv-fs';
@@ -341,6 +373,7 @@
     if (img) img.src = '';
     overlay.remove();
     fsOpen = false;
+    document.body.classList.remove('cctv-fs-open');
   }
 
   // ---------------- Render / polling ----------------

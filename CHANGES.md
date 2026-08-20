@@ -1,3 +1,39 @@
+# DEX Labs v1.6.1 - Changes
+
+Follow-up polish for the CCTV subsystem, all from user feedback on the
+first release:
+
+**1. You can now switch subsystems while watching a camera full-screen.**
+The full-screen viewer used to cover the whole page (it's a black overlay
+at z-index 9999), so the top bar - and with it every other subsystem -
+was unreachable until you closed it by hand. The top bar now floats
+above the viewer while it's open, and the viewer closes itself the
+moment you actually navigate (clicking Study, Lessons, the DL brand,
+etc.), stopping that camera's stream server-side at the same time. Same
+on phones: the hamburger menu stays usable over the video.
+
+**2. Study and CCTV now genuinely run at the same time.** Browsers cap
+connections per host (~6), and every camera tile is a long-held MJPEG
+socket - so if you left the camera grid (or the full-screen viewer)
+running in one window and opened Study (or anything else) in another
+window/tab of the same browser, its API calls queued behind the video
+streams and the site went unresponsive. Now, the moment the CCTV tab
+is hidden, every stream image is dropped (the socket closes, the server
+kills that ffmpeg); the moment the tab is seen again, they reconnect
+instantly. So a Study session keeps counting and loading while the
+cameras play in another window, and vice versa. The stream restores
+itself from exactly where it was - no "No signal" detours (the
+reconnect loop also no longer churns while the tab is hidden).
+
+**3. DL favicon.** The site now shows the same "DL" logo as the system
+tray icon in the browser tab (SVG + ICO, so it's crisp on every
+browser). The Landing Page got the same icon.
+
+**Housekeeping:** release zips (`DEX-Labs-*.zip`) are now gitignored so
+the auto-sync (GitSync.ps1) never commits a 100+MB binary into the
+repo again (it briefly did on the v1.6.0 round; the commit was removed
+before it ever reached GitHub).
+
 # DEX Labs v1.6.0 - Changes
 
 New subsystem: **CCTV** - live camera feeds from the home Hikvision DVR on the

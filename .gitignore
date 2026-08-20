@@ -13,6 +13,8 @@ logs.txt
 tools-youtube/ffmpeg.exe
 tools-youtube/ffplay.exe
 tools-youtube/ffprobe.exe
+# Release zips - built per release (see AGENTS.md); never commit them.
+DEX-Labs-*.zip
 *.tmp
 .env
 .env.*

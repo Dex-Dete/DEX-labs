@@ -619,6 +619,45 @@ landing-page/                  the Landing Page - own Node process, own
   back to the user - they already have it. If something is genuinely
   ambiguous, ask; otherwise just ship the diff.
 
+## v1.6.1 (for future sessions)
+
+Final polish round for v1.6.0's CCTV, straight from user feedback, then
+released by the standard process (zip now gitignored first - see below).
+
+- **Full-screen viewer no longer blocks the nav.** `.cctv-fs` is a
+  body-level black overlay at z-index 9999; the top bar used to sit
+  under it (z-index 10), so switching subsystems mid-view was
+  impossible. cctv.js now toggles `body.cctv-fs-open` in
+  openFullscreen/closeFullscreen, and cctv.css lifts `.topbar` to
+  z-index 10000 (and `.nav-backdrop` to 9998) while it's set.
+  Navigating away closes the viewer via the existing
+  `stopSubsystemPolling('cctv')` -> `CCTV.cleanup()` -> `closeFullscreen()`
+  path - that part already existed and works.
+- **Study + CCTV simultaneity.** Browsers cap connections per host
+  (~6); MJPEG tiles/full-screen hold sockets open forever, so a second
+  window/tab on the same site starved once the grid was streaming.
+  cctv.js now listens for `visibilitychange`: tab hidden -> every
+  `img` src is dropped (socket closes, ffmpeg dies server-side),
+  tab visible -> srcs restored. The tile reconnect loop also skips
+  while `document.hidden`. Nothing else needed fixing - Study sessions
+  already tick server-side and re-sync on re-entry.
+- **DL favicon.** `public/favicon.svg` (rounded blue #2F6690 square +
+  white bold "DL", same look as `tray-icon.ico`) + `public/favicon.ico`
+  (a straight copy of the tray icon), linked from `public/index.html`;
+  both copied to `landing-page/public/` (relative links there - that
+  page is served from its own folder, not the main `public/`).
+- **GitSync guard.** A scheduled auto-sync (`GitSync.ps1`, runs on its
+  own and commits+pushes on a timer) swept the 130MB release zip into
+  git on the v1.6.0 round as "Auto Sync ..." - local-only at the time,
+  removed with `git reset HEAD~1`, and `DEX-Labs-*.zip` is now in
+  .gitignore so it can't recur. If an unexpected "Auto Sync" commit
+  appears during a session, check it for large binaries before pushing.
+
+Rules for future work: keep the "topbar floats over CCTV viewer" CSS +
+`cctv-fs-open` body-class contract intact (any new full-screen-ish
+overlay should follow the same pattern), and never build the release
+zip before committing (and never let it get committed).
+
 ## v1.6.0 (for future sessions)
 
 New subsystem added on 2026-08-20: **CCTV** (id `cctv`, hash `#/cctv`, label
