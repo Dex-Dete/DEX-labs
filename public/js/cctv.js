@@ -316,15 +316,33 @@
     }
   }
 
+  // v1.6.3: the full-screen viewer hangs BELOW the sticky top bar
+  // instead of covering it (see .cctv-fs's top: var(--cctv-fs-top) in
+  // cctv.css) - so the DEX Labs brand and the subsystem nav are never
+  // underneath the video and always work. The bar's real height is
+  // measured here (it differs between desktop and mobile) and kept in
+  // sync while the viewer is open (rotation/resize).
+  function syncViewerTop() {
+    const bar = document.querySelector('.topbar');
+    const h = bar ? bar.offsetHeight : 0;
+    document.documentElement.style.setProperty('--cctv-fs-top', h + 'px');
+  }
+  let fsResizeHandler = null;
+
   function openFullscreen(channelId) {
     if (fsOpen) return;
     const ch = (status && status.channels || []).find((c) => c.id === channelId);
     if (!ch) return;
     fsOpen = true;
+    syncViewerTop();
     // v1.6.1: leave a marker on <body> so cctv.css can keep the top bar
     // above the viewer - you can jump to another subsystem without
     // closing it by hand; navigation closes it (see cleanup()).
     document.body.classList.add('cctv-fs-open');
+    if (!fsResizeHandler) {
+      fsResizeHandler = () => { if (fsOpen) syncViewerTop(); };
+      window.addEventListener('resize', fsResizeHandler);
+    }
 
     const overlay = document.createElement('div');
     overlay.className = 'cctv-fs';
@@ -421,6 +439,7 @@
     if (!overlay) return;
     if (overlay._keyHandler) window.removeEventListener('keydown', overlay._keyHandler);
     if (overlay._closeMenu) document.removeEventListener('click', overlay._closeMenu);
+    if (fsResizeHandler) { window.removeEventListener('resize', fsResizeHandler); fsResizeHandler = null; }
     // Clearing the <img> src closes the MJPEG socket immediately plus
     // removing the node - server sees the socket close and kills ffmpeg.
     const img = overlay.querySelector('img');

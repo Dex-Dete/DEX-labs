@@ -2,7 +2,13 @@
   const view = document.getElementById('view');
   const crumbs = document.getElementById('crumbs');
   const toastEl = document.getElementById('toast');
-  document.getElementById('brand-home').addEventListener('click', () => { location.hash = '#/'; });
+  document.getElementById('brand-home').addEventListener('click', () => {
+    // v1.6.3: only setting location.hash here means "nothing happens"
+    // when the hash is already '#/' - force a re-route in that case so
+    // the brand ALWAYS takes you home (and closes any CCTV viewer).
+    if (location.hash === '#/' || location.hash === '') route();
+    else location.hash = '#/';
+  });
   document.getElementById('nav-settings-btn').addEventListener('click', () => { location.hash = '#/settings'; });
   document.getElementById('server-info-btn').addEventListener('click', showServerInfo);
 
@@ -477,6 +483,57 @@
         if (generic && typeof generic.cleanup === 'function') generic.cleanup();
       }
     } catch (e) { /* never let a cleanup slip block navigation */ }
+  }
+
+  // v1.6.3: live Study-session chip in the top bar. While a Study
+  // session (pomodoro or stopwatch) is running, a chip shows its live
+  // time on EVERY subsystem - CCTV included - so the running timer is
+  // never lost when you leave the Study tab. Tapping it jumps back to
+  // Study. The server is the source of truth (sessions tick
+  // server-side); this polls /api/study/active every 5s and ticks the
+  // display locally each second so it counts smoothly. It hides on the
+  // Study tab itself (Study has its own timer UI there).
+  const studyChip = document.getElementById('study-chip');
+  let studyChipView = null; // last GET /api/study/active + fetchedAt
+  function fmtMsClock(ms) {
+    const t = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(t / 3600);
+    const m = Math.floor((t % 3600) / 60);
+    const s = t % 60;
+    return (h > 0 ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(s).padStart(2, '0');
+  }
+  function updateStudyChip() {
+    if (!studyChip || !studyChipView || activeSubsystemId === 'study') {
+      if (studyChip) studyChip.hidden = true;
+      return;
+    }
+    const v = studyChipView;
+    const now = Date.now();
+    if (v.method === 'pomodoro') {
+      const rem = v.running ? Math.max(0, v.phaseRemainingMs - (now - v.fetchedAt)) : v.phaseRemainingMs;
+      studyChip.textContent = `${v.phase === 'study' ? '📖' : '☕'} ${v.subjectName} · ${fmtMsClock(rem)}`;
+      studyChip.title = `Study: ${v.subjectName} - ${v.phase} phase (cycle ${v.cyclesCompleted + 1}) - tap to open Study`;
+    } else {
+      const el = v.elapsedMs + (v.running ? (now - v.fetchedAt) : 0);
+      studyChip.textContent = `📖 ${v.subjectName} · ${fmtMsClock(el)}`;
+      studyChip.title = `Study stopwatch: ${v.subjectName} - tap to open Study`;
+    }
+    studyChip.hidden = false;
+  }
+  async function refreshStudyChip() {
+    try {
+      const res = await fetch('/api/study/active');
+      const d = await res.json();
+      studyChipView = d ? Object.assign({}, d, { fetchedAt: Date.now() }) : null;
+    } catch (e) { /* offline-tolerant - keep the last known view */ }
+    updateStudyChip();
+  }
+  if (studyChip) {
+    studyChip.addEventListener('click', () => { location.hash = '#/study'; });
+    setInterval(refreshStudyChip, 5000);
+    setInterval(updateStudyChip, 1000);
+    window.addEventListener('hashchange', refreshStudyChip);
+    refreshStudyChip(); // show it right away on page load, no 5s wait
   }
 
   window.addEventListener('hashchange', route);

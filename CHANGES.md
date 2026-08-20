@@ -1,3 +1,38 @@
+# DEX Labs v1.6.3 - Changes
+
+Third (and decisive) round on the CCTV switching problem, plus the
+always-visible Study timer - all from the user's direct feedback:
+
+**1. The full-screen viewer no longer covers the top bar at all.**
+Everything before depended on CSS stacking order (the bar floating
+ABOVE an inset:0 overlay), which works on a freshly-loaded page but is
+one fragile link. v1.6.3 removes the need for it: the viewer now hangs
+BELOW the sticky top bar (`top: var(--cctv-fs-top)`, measured from the
+bar's real height in `syncViewerTop()`, kept in sync on
+resize/rotation). The DEX Labs brand, the subsystem nav and the
+hamburger are physically never underneath the video - always visible,
+always tappable, on any browser, any device, regardless of page age.
+The old z-index rules stay as harmless safety nets.
+
+**2. The DEX Labs brand always works now.** Even when the hash is
+already `#/` (which made the click a no-op before), tapping the brand
+forces a re-route - so it always takes you home and closes any CCTV
+viewer on the way.
+
+**3. Your Study timer never disappears again.** While a Study session
+(pomodoro or stopwatch) is running, the top bar shows a live chip -
+e.g. `📖 Mathematics · 12:34` - on EVERY subsystem, CCTV included, that
+counts down/up every second and turns into a coffee cup ☕ during a
+pomodoro rest phase. It's fed by the server (sessions tick
+server-side) with a light 5s poll plus a per-second local tick, so the
+desktop and every phone agree. Tapping the chip jumps straight back to
+Study (which closes the CCTV viewer if it's open). The chip hides on
+the Study tab itself, where Study shows its own timer UI.
+
+The Switch menu inside the viewer (v1.6.2) and the pause-streams-when-
+tab-hidden behaviour (v1.6.1) are unchanged and still work alongside
+all of the above.
+
 # DEX Labs v1.6.2 - Changes
 
 Two user-requested items:

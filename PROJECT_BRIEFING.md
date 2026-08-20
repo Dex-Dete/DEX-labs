@@ -619,6 +619,50 @@ landing-page/                  the Landing Page - own Node process, own
   back to the user - they already have it. If something is genuinely
   ambiguous, ask; otherwise just ship the diff.
 
+## v1.6.3 (for future sessions)
+
+Third round on CCTV navigation - the user still couldn't switch while
+watching live, the running Study timer "disappeared" on CCTV, and the
+DEX Labs brand click did nothing. Releasing v1.6.3 fixed all three;
+details below, plus rules for the future.
+
+- **Viewer physically below the top bar.** `.cctv-fs` was `inset: 0`
+  with z-index fixes on top - every approach until now depended on
+  stacking order (fragile across stale tabs/devices). Now the viewer is
+  `top: var(--cctv-fs-top)` (left/right/bottom: 0), and cctv.js's
+  `syncViewerTop()` measures `.topbar.offsetHeight` in openFullscreen
+  (+ resize listener while open, removed in closeFullscreen). The
+  brand/nav/hamburger are never covered - no z-index needed at all.
+  The v1.6.1 z-index rules (`body.cctv-fs-open .topbar` /
+  `body:has(.cctv-fs) .topbar`) remain as harmless safety nets.
+- **Brand click:** `#brand-home` now calls route() directly when the
+  hash is already `#/` (previously a silent no-op); otherwise sets
+  `#/` as before. Always navigates home and closes the viewer via
+  CCTV.cleanup().
+- **Always-visible Study chip:** new `#study-chip` button in the
+  topbar (index.html), styled in style.css (`.study-chip` + the
+  mandatory `[hidden]` override since it's display:inline-flex). app.js
+  polls GET /api/study/active every 5s (`refreshStudyChip`), keeps a
+  per-second local tick (`updateStudyChip`) that derives live remaining/
+  elapsed from the server's timestamps + a local `fetchedAt`, shows
+  `📖 <subject> · mm:ss` (pomodoro counts the phase down, ☕ during rest,
+  title shows cycle number; stopwatch counts up), hides on the Study tab
+  and when nothing runs, and navigates to `#/study` on tap (which
+  closes an open CCTV viewer through the normal route->cleanup path).
+  Poll continues on every page - it's one tiny JSON GET every 5s.
+  `studyChipView` shape comes from lib/study-store.js's
+  `computeActiveView()`; if the session shape ever changes, update the
+  chip's field reads.
+- **Server-side:** no changes in v1.6.3 (all client + docs + version).
+
+Future rules: any new full-screen-style surface must never cover the
+top bar (follow the `--cctv-fs-top` pattern or keep chrome outside the
+overlay); the Study chip must keep hiding on the study tab and only
+ever read `/api/study/active` (never mutate); always tell the user to
+hard-refresh once after an update if a UI fix "isn't working" - stale
+tabs are usually the culprit, and the viewer redesign makes the worst
+case harmless anyway.
+
 ## v1.6.2 (for future sessions)
 
 Two user-requested items, both released by the standard process.

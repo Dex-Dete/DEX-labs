@@ -146,6 +146,30 @@ a { color: var(--pen); }
   border-radius: 2px;
   vertical-align: -3px;
 }
+/* v1.6.3: always-visible chip for a running Study session - shows live
+   anywhere (CCTV included) so the timer never "disappears" when you
+   leave Study; tap it to jump back. Driven by app.js. The [hidden]
+   rule matters: display:inline-flex would otherwise override the
+   hidden attribute. */
+.study-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(243, 236, 217, 0.12);
+  border: 1px solid rgba(243, 236, 217, 0.4);
+  color: var(--topbar-fg);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.study-chip:hover { background: rgba(243, 236, 217, 0.22); border-color: var(--highlight); }
+.study-chip[hidden] { display: none; }
+.study-chip::before { content: '●'; color: #2ecc71; animation: study-chip-blink 1.2s infinite; }
+@keyframes study-chip-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 .subsystem-nav { display: flex; align-items: center; gap: 6px; }
 .icon-btn {
   background: transparent;

@@ -126,9 +126,18 @@
 }
 
 /* ---------- Full-screen viewer ---------- */
+/* v1.6.3: the viewer now starts BELOW the sticky top bar (its top is
+   --cctv-fs-top, set by cctv.js from the bar's real height) instead of
+   covering the whole screen. That means the DEX Labs brand, the
+   subsystem nav and the hamburger are physically never underneath it -
+   they're always visible and tappable on every browser, no z-index
+   games, even in a tab that hasn't reloaded since an update. */
 .cctv-fs {
   position: fixed;
-  inset: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: var(--cctv-fs-top, 0px);
   z-index: 9999;
   background: #000;
   display: flex;
