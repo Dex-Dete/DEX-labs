@@ -1,4 +1,48 @@
-# DEX Labs v1.5.0 - Changes
+# DEX Labs v1.6.0 - Changes
+
+New subsystem: **CCTV** - live camera feeds from the home Hikvision DVR on the
+local network, no login needed on the DEX Labs site.
+
+**1. Auto-discovery.** On first visit the CCTV tab scans the LAN for the DVR
+(probes `192.168.1.x` (or this PC's own subnet) for the Hikvision SDK port and
+the HTTP ISAPI port, verifies login over HTTP-digest, and pulls the camera
+channel list). One tap starts it - it found the DVR at `192.168.1.4`
+(iDS-7208HUHI-M1/S, 8 channels) on this machine's network. The DVR's own
+credentials are stored in `data/cctv.json` (never shown on the page).
+
+**2. Live grid.** All enabled channels render as a responsive tile grid (1
+column on portrait phones, compact 2+ on landscape phones, 2-3 on tablets, up
+to 6 on desktop). Each tile is a plain `<img>` pointed at a server-streamed
+MJPEG feed - any browser renders it with zero video plugins. Grid tiles use
+each camera's sub-stream scaled to 480px at 8fps so 8 tiles stay light; the
+full-screen viewer uses the main (HD) stream at up to 12fps. If the feed drops,
+a tile shows "No signal - reconnecting" and reconnects on its own.
+
+**3. Full-screen viewer + snapshots.** Tap any tile for full-screen HD, with
+an SD/HD toggle and a "Snap" button that downloads a timestamped JPEG snapshot.
+
+**4. Settings.** Settings > CCTV shows the same one-time connection form
+(host, HTTP port, RTSP port, username, password) plus a "Find DVR
+automatically" button. A wrong password is reported honestly - the saved
+credentials are only ever used as a fallback during auto-discovery, never
+silently substituted behind a manual save. Existing files:
+`lib/cctv-store.js` (config + ISAPI digest client + discovery),
+`routes/cctv.js` (endpoints + ffmpeg MJPEG pump), `public/js/cctv.js`,
+`public/css/cctv.css`. Uses the same bundled `tools-youtube/ffmpeg` binary
+the YouTube Downloader already ships.
+
+README also corrected (subsystem list, Events menu count, shared
+ffmpeg/yt-dlp tooling notes), and the release zip now ships the ffmpeg
+binaries under `tools-youtube/` so CCTV + the Downloader work straight
+out of the box on a fresh install (kept out of the Git repo - GitHub's
+100MB-per-file limit - see README).
+
+**Known limitations:** streams are MJPEG (low latency, universal) rather than
+HLS; the DVR's own HLS/httpPreview endpoints are blocked on current Hikvision
+firmware (403 / invalidOperation on this unit), which is why ffmpeg restreams
+RTSP server-side. Per-viewer ffmpeg is capped at 24 concurrent streams; a
+camera only shows if it's actually powering frames (channels can be disabled
+in the DVR itself).
 
 User-requested AirDrop clipboard feature: paste a text on your phone
 and it appears on the PC for 30 minutes - copyable from the machine,

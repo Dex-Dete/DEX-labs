@@ -8,6 +8,11 @@ backups/
 globalnetwork-tmp/
 node_modules/
 logs.txt
+# ffmpeg binaries - too big for GitHub (100MB/file limit); they ship in
+# the release zip under tools-youtube/ instead (see README).
+tools-youtube/ffmpeg.exe
+tools-youtube/ffplay.exe
+tools-youtube/ffprobe.exe
 *.tmp
 .env
 .env.*

@@ -300,6 +300,36 @@
   }
 
 
+  // ---------------- v1.6.0: CCTV ----------------
+  // Reuses the exact same widget the CCTV page shows when unconfigured
+  // (window.CCTV.setupFormHtml/wireSetupPanel - loaded before this file,
+  // see index.html) so there is exactly one copy of that form in the
+  // whole app. Falls back to a small inline message if CCTV itself is
+  // unavailable, so a broken camera feature can never break Settings.
+  function cctvHtml(cctvStatus) {
+    if (!cctvStatus) {
+      return `
+        <div class="panel" style="margin-top:16px;">
+          <h2 style="margin-bottom:6px;">CCTV</h2>
+          <div class="hint">CCTV is unavailable right now - check logs.txt. The rest of Settings still works fine.</div>
+        </div>
+      `;
+    }
+    return `
+      <div class="panel" style="margin-top:16px;">
+        <h2 style="margin-bottom:6px;">CCTV</h2>
+        <div class="hint" style="margin-bottom:10px;">Live cameras from your Hikvision DVR. Set the details once here (or find the DVR automatically) - after that the CCTV tab shows every camera's live feed on any device on this network, no login needed on DEX Labs. Credentials are stored on this PC only and never shown on the page.</div>
+        <div id="set-cctv-body">${window.CCTV ? window.CCTV.setupFormHtml(cctvStatus) : '<div class="hint">CCTV module not loaded.</div>'}</div>
+      </div>
+    `;
+  }
+
+  function wireCctvPanel(statusForPanel) {
+    const body = document.getElementById('set-cctv-body');
+    if (!body || !window.CCTV) return;
+    window.CCTV.wireSetupPanel(statusForPanel, body);
+  }
+
   async function render() {
     const crumbs = document.getElementById('crumbs');
     crumbs.innerHTML = '<span>Settings</span>';
@@ -314,6 +344,7 @@
     let backupStatus;
     let theme;
     let sbmSettings;
+    let cctvStatus;
     try {
       [current, subsysData, backupStatus, theme, sbmSettings] = await Promise.all([
         api('/api/settings'),
@@ -322,6 +353,9 @@
         api('/api/settings/theme'),
         api('/api/settings/sbm'),
       ]);
+      // v1.6.0: CCTV status is separate/optional so a CCTV failure can't
+      // hold the rest of Settings hostage.
+      cctvStatus = await api('/api/cctv/status').catch(() => null);
     } catch (e) {
       document.getElementById('settings-panel').innerHTML = `<div class="empty-state">Could not load settings: ${escapeHtml(e.message)}</div>`;
       return;
@@ -329,7 +363,9 @@
 
     const backupForced = !backupStatus.disk.configured;
     const forced = !current.setupComplete || backupForced;
-    document.getElementById('settings-panel').innerHTML = formHtml(current, forced, backupForced) + backupHtml(backupStatus) + subsystemsHtml(subsysData) + appearanceHtml(theme) + navigationHtml() + sbmHtml(sbmSettings);
+    document.getElementById('settings-panel').innerHTML = formHtml(current, forced, backupForced) + backupHtml(backupStatus) + subsystemsHtml(subsysData) + appearanceHtml(theme) + navigationHtml() + sbmHtml(sbmSettings) + cctvHtml(cctvStatus);
+
+    wireCctvPanel(cctvStatus);
 
     const navModeCheckbox = document.getElementById('set-nav-mode-checkbox');
     const navModeCaption = document.getElementById('set-nav-mode-caption');

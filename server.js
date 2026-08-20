@@ -163,6 +163,19 @@ try {
 }
 
 try {
+  // v1.6.0: CCTV subsystem - finds the on-LAN Hikvision DVR and streams
+  // its cameras' live feed (MJPEG over the bundled ffmpeg) with no login
+  // on this site. Own store (data/cctv.json), own route file, same
+  // isolation pattern as every other subsystem.
+  const cctvRouter = require('./routes/cctv');
+  app.use('/api/cctv', cctvRouter);
+  console.log('[OK] CCTV routes loaded.');
+} catch (err) {
+  console.error('[ERROR] CCTV routes failed to load - that feature will be unavailable:', err && err.stack || err);
+  app.use('/api/cctv', (req, res) => res.status(500).json({ error: 'CCTV failed to start. Check logs.txt.' }));
+}
+
+try {
   const settingsRouter = require('./routes/settings');
   app.use('/api/settings', settingsRouter);
   console.log('[OK] Settings/update-notice routes loaded.');
@@ -279,7 +292,7 @@ app.get('/api/busy', async (req, res) => {
 
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`DEX Labs v${VERSION} running: http://localhost:${PORT}`);
-  console.log(`  Subsystems: Lesson Tracker, AirDrop, Daily Schedule, Clock, YouTube Downloader, Study, Backup`);
+  console.log(`  Subsystems: Lesson Tracker, AirDrop, Daily Schedule, Clock, YouTube Downloader, Study, CCTV, Backup`);
   const nets = os.networkInterfaces();
   for (const name of Object.keys(nets)) {
     for (const net of nets[name]) {

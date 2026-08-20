@@ -619,6 +619,55 @@ landing-page/                  the Landing Page - own Node process, own
   back to the user - they already have it. If something is genuinely
   ambiguous, ask; otherwise just ship the diff.
 
+## v1.6.0 (for future sessions)
+
+New subsystem added on 2026-08-20: **CCTV** (id `cctv`, hash `#/cctv`, label
+"CCTV") - live camera feeds from a Hikvision DVR on the LAN, no login on the
+DEX Labs side. Registered in `lib/subsystems-registry.js`, uses the generic
+`window.DexSubsystems` fallback in `app.js` (no special-casing in app.js).
+Files:
+- `lib/cctv-store.js` - `data/cctv.json` (host/HTTP port/RTSP port/username/
+  password + channel list) plus the Hikvision ISAPI helper: a small HTTP-digest
+  auth client (no npm dep), device probe, channel enumeration, per-channel
+  main/sub stream availability check, and the LAN discovery scan (probes the
+  SDK port 8000 + web port 80 across the /24 subnet, verifies login, pulls the
+  channel list; falls back to the documented default creds only during
+  discovery, never behind a manual save).
+- `routes/cctv.js` - `GET /api/cctv/status`, `POST /api/cctv/discover`,
+  `POST /api/cctv/creds` (verify + save, blank password = keep saved),
+  `POST /api/cctv/refresh`, `GET /api/cctv/snapshot/:channel` (one JPEG), and
+  `GET /api/cctv/stream/:channel` - live MJPEG restreamed from RTSP by the
+  bundled `tools-youtube/ffmpeg.exe`, split into multipart `--frame` chunks
+  server-side so a plain `<img>` renders it in any browser. 24-way stream cap,
+  ffmpeg killed on client disconnect/stall.
+- `public/js/cctv.js` - self-registered module (looks/renders like every other
+  subsystem): status chip, responsive tile grid (CSS auto-fill grid + media
+  queries in `public/css/cctv.css` - portrait phone 1 col, landscape phone
+  compact 2+, tablet 2-3, desktop up to 6), per-tile reconnect-on-error, and a
+  full-screen HD viewer with an SD/HD toggle and snapshot download. Exposes
+  `window.CCTV.setupFormHtml(status)/wireSetupPanel(status, container)` so the
+  Settings page reuses the exact same connection form.
+- `Settings > CCTV` - same connection form + "Find DVR automatically" button.
+
+Rules for future sessions:
+- The RTSP URL is ALWAYS rebuilt server-side from stored credentials - never
+  trust a client-supplied URL/password. Streams/snapshots accept channel
+  numbers only. The password never appears in any API response.
+- Discovery intentionally falls back to the brief's known default credentials
+  (`admin`/`Admin@123`, etc.) so a fresh install finds the DVR out of the box,
+  but a manual credentials save tries ONLY the entered pair so a wrong
+  password is reported honestly instead of being silently replaced.
+- Grid tiles use the sub-stream (960x576 on this DVR) at ~8fps/480px; the
+  full-screen viewer uses the main 1080p stream at up to 12fps - this keeps 8
+  always-on tiles light without sacrificing full-screen quality.
+- v1.6.0 was released by the standard process: version bump (both
+  package.json files), CHANGES.md + PROJECT_BRIEFING.md sections, README
+  corrected (subsystem list, Clock's 4 menus, ffmpeg tooling note),
+  commit/tag/push, zip with the ffmpeg binaries added under
+  `tools-youtube/` (they're gitignored - GitHub's 100MB-per-file limit),
+  GitHub release. If a new release is ever needed for CCTV fixes, keep
+  the zip including the ffmpeg binaries.
+
 ## v1.5.0 (for future sessions)
 
 AirDrop clipboard feature: text pasted on a phone shows up on the PC

@@ -44,13 +44,13 @@ DEX Labs itself is just a shell; the actual features are independent
   from any other device, auto-deletes after 1 hour. 30GB shared storage
   at any given time.
 - **📅 Daily Schedule** — a simple 3-day study planner grid.
-- **🕐 Clock** — one subsystem, 3 menus: **Timer**, **Alarm**, and
-  **Stopwatch**. Up to 10 of each at once, shown as circular
-  timers/rings. When a timer or alarm goes off, the PC running DEX Labs
-  beeps loudly through its own speakers (including Bluetooth
-  speakers/headsets) - it's a real alarm, not just a silent website
-  notification. Stopwatches run on the server too, so they keep correct
-  time across page reloads or a server restart.
+- **🕐 Clock** — one subsystem, 4 menus: **Timer**, **Alarm**,
+  **Stopwatch**, and **Events** (countdowns to important dates). Up to 10
+  of each at once, shown as circular timers/rings. When a timer or alarm
+  goes off, the PC running DEX Labs beeps loudly through its own speakers
+  (including Bluetooth speakers/headsets) - it's a real alarm, not just a
+  silent website notification. Stopwatches run on the server too, so they
+  keep correct time across page reloads or a server restart.
 - **⬇ YouTube Downloader** — paste a video link, see real quality
   options (Max/Medium/Lowest/Audio-only) with accurate file sizes pulled
   straight from the video, pick one, and download it to this PC. Sets up
@@ -61,6 +61,19 @@ DEX Labs itself is just a shell; the actual features are independent
   See hours studied per subject as a pie/bar chart, how many days you
   Studied vs Slept vs Did nothing, and a GitHub-style year heatmap
   showing how much you studied on every day of the year.
+- **🌙 Standby Mode** — a full-screen, always-on "ambient" view: big
+  clock, next events, weather-style cards, host RAM/CPU stats, and
+  today's to-dos.
+- **✅ To-Do** — a ticking-off list (like GitHub's `- [ ]` checkboxes)
+  you can schedule on calendar days, with done-items stamped with dates
+  on the Study calendar.
+- **📹 CCTV** — if you have a Hikvision DVR on the same WiFi, one tap
+  finds it ("Find DVR automatically") and shows every camera's live feed
+  as a responsive tile grid on any device - no login needed on DEX Labs.
+  Tap a tile for full-screen HD with an SD/HD toggle and one-tap
+  snapshots. Uses the same bundled `ffmpeg` as the YouTube Downloader to
+  restream the DVR's RTSP feeds. Credentials (set once in Settings, or
+  auto-discovered) are stored on this PC only.
 
 Any subsystem can be hidden from the nav (and un-hidden later) via
 **⚙ Settings** on the website or the tray's Settings menu, without
@@ -219,15 +232,16 @@ actively maintained against YouTube's frequent changes.
   folder), DEX Labs downloads it itself - no manual install step, no
   admin prompt. This also runs once in the background right at server
   startup so it's usually already done by the time you open the page.
-- **`ffmpeg` does NOT auto-download** - place `ffmpeg.exe` and
-  `ffprobe.exe` in `tools-youtube/` yourself (download:
-  https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip,
-  the binaries are in its `bin/` folder). The app detects them the
-  moment they're placed there - no restart needed. (Automatic ffmpeg
-  download exists in the code and can be re-enabled - see
-  `AUTO_DOWNLOAD_FFMPEG` in `lib/ytdownload-store.js` - but it proved
-  unreliable against real third-party hosts in practice, so it ships off
-  by default.)
+- **`ffmpeg` ships inside the release zip** (in `tools-youtube/`), ready
+  to use - the Downloader merges video/audio with it, and CCTV restreams
+  the DVR's camera feeds through it. If your copy ever lacks it, place
+  `ffmpeg.exe` (and `ffprobe.exe`/`ffplay.exe` if you want them) in
+  `tools-youtube/` yourself (download:
+  https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip, the
+  binaries are in its `bin/` folder) - the app detects them the moment
+  they're placed there, no restart needed. It's kept out of the Git
+  repository (GitHub's 100MB-per-file limit), which is why the zip must
+  include it separately.
 - **`yt-dlp` keeps itself up to date.** Beyond the one-time install, DEX
   Labs periodically runs `yt-dlp`'s own self-update check in the
   background for as long as the server stays running - YouTube changes
@@ -270,9 +284,10 @@ uploads-airdrop/           AirDrop's shared files (auto-deleted after
                             1hr; save location is user-configurable)
 downloads-youtube/         YouTube Downloader's finished downloads
                             (auto-swept after 24hr if unclaimed)
-tools-youtube/             YouTube Downloader's own managed copies of
-                            the yt-dlp/ffmpeg binaries (downloaded
-                            automatically on first use)
+tools-youtube/             the yt-dlp/ffmpeg binaries used by the
+                            YouTube Downloader and CCTV (yt-dlp
+                            auto-updates itself; ffmpeg ships in the
+                            release zip)
 tray.ps1                   the system tray application
 apply-update.ps1           shared update logic (backup → extract →
                             npm install → refresh icon/shortcuts)
@@ -295,8 +310,8 @@ example): a `lib/<name>-store.js` for its own tiny JSON-file database, a
 `routes/<name>.js` for its API, and a `public/js/<name>.js` +
 `public/css/<name>.css` for its frontend (a self-contained module
 exposing `render()`, same shape as `airdrop.js`/`schedule.js`/
-`timers.js`/`ytdownload.js`). Keep it independent - no importing another
-subsystem's store or reaching into its data.
+`timers.js`/`ytdownload.js`/`cctv.js`). Keep it independent - no
+importing another subsystem's store or reaching into its data.
 
 To actually plug it into the nav/show-hide-menu system:
 
