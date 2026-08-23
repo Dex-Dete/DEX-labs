@@ -1,0 +1,635 @@
+/* ---- Study ------------------------------------------------------------
+   Own accent (a deep indigo, "focus/study" feel) so it reads as its own
+   subsystem, same approach as timers.css/schedule.css. Reuses base
+   tokens from style.css (--card, --ink, --radius, --shadow, .btn, .panel,
+   .empty-state etc.) for consistency.
+--------------------------------------------------------------------------*/
+:root {
+  --study-accent: #4b3f8f;
+  --study-accent-dark: #352b6b;
+  --study-accent-soft: rgba(75, 63, 143, 0.12);
+  /* v1.3.5: the heatmap's 4 intensity levels are a fixed decorative
+     scale (get progressively deeper purple, same in both themes) - kept
+     separate from --study-accent-dark, which is a *text*-contrast token
+     that intentionally flips lighter in dark mode. Reusing that token
+     for the darkest cell used to make the "most active" day render
+     lighter than levels 2-3 once dark mode flipped it - the opposite of
+     what the gradient is supposed to show. */
+  --study-heat-4: #352b6b;
+  /* v1.2.1: Rec's own accent (warm amber/rust) - visually distinct from
+     Study's indigo so the two tabs/timers read as separate things, and
+     reused as the "Rec" segment color in the Stats split bar below. */
+  --rec-accent: #b5651d;
+  --rec-accent-dark: #8a4a15;
+  --rec-accent-soft: rgba(181, 101, 29, 0.12);
+  /* v1.3.7: Paper's own accent (teal/sea-green - past papers feel like
+     "getting the job done"). Named --ppr-* (not --paper-*) deliberately
+     so it can never be confused with the base --paper/--paper-line
+     background tokens in style.css. Visually distinct from Study's
+     indigo and Rec's amber, and reused as the "Paper" segment color in
+     the Stats split bars. */
+  --ppr-accent: #2c7f74;
+  --ppr-accent-dark: #1f5a52;
+  --ppr-accent-soft: rgba(44, 127, 116, 0.12);
+}
+
+/* v1.3.5: dark-mode variants. --study-accent-dark/--rec-accent-dark are
+   used as TEXT color (subject names, stat values, heatmap's darkest
+   cell) against --card, which flips from light cream to dark navy in
+   dark mode (see style.css's html[data-theme="dark"] block) - the light-
+   mode literals above are deliberately dark for contrast against a
+   light card, which makes them the exact wrong thing to also use
+   against a dark card (near-black on near-black). Lighter/brighter
+   versions of each token here fix that without touching any of the
+   selectors below - they all just read the variable. */
+html[data-theme="dark"] {
+  --study-accent: #8f80e0;
+  --study-accent-dark: #c3b6f5;
+  --study-accent-soft: rgba(143, 128, 224, 0.22);
+  --rec-accent: #e0985a;
+  --rec-accent-dark: #f0b784;
+  --rec-accent-soft: rgba(224, 152, 90, 0.22);
+  --ppr-accent: #4db8a8;
+  --ppr-accent-dark: #8ad9cc;
+  --ppr-accent-soft: rgba(77, 184, 168, 0.22);
+}
+
+.study-page-sub {
+  color: var(--ink-soft);
+  margin: -12px 0 18px;
+  font-size: 0.95rem;
+}
+
+/* ---- Tab menu (Study / Stats / Calendar) - same shape as Clock's
+   .clock-tabs, own accent color. ------------------------------------- */
+.study-tabs {
+  display: flex;
+  gap: 6px;
+  margin: -6px 0 18px;
+  background: var(--study-accent-soft);
+  padding: 5px;
+  border-radius: 10px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.study-tab-btn {
+  border: none;
+  background: transparent;
+  color: var(--study-accent-dark);
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  padding: 9px 18px;
+  border-radius: 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.study-tab-btn.active { background: var(--study-accent); color: #fff; }
+
+/* v1.3.3: Stats tab's nested Today/Total sub-tabs - same look, just a
+   touch smaller/tighter since it's a second-level nav sitting directly
+   under the Study/Rec/Stats/Calendar tab strip above it. */
+.study-subtabs {
+  margin: 0 0 18px;
+}
+.study-subtabs .study-tab-btn {
+  padding: 6px 16px;
+  font-size: 0.85rem;
+}
+
+/* v1.2.1: Rec's tab body wraps its content in .study-rec-scope, which
+   locally overrides the same --study-accent* variables every shared
+   component below (.study-subject-card, .study-focus, .study-ring-*,
+   etc.) already reads from - so the Rec tab automatically gets its own
+   warm accent color everywhere, with zero duplicated CSS rules. */
+.study-rec-scope {
+  --study-accent: var(--rec-accent);
+  --study-accent-dark: var(--rec-accent-dark);
+  --study-accent-soft: var(--rec-accent-soft);
+}
+
+/* v1.3.7: same accent-override trick as .study-rec-scope above, but for
+   the Paper tab - every shared .study-subject-card/.study-focus/
+   .study-ring-* component picks up Paper's teal accent automatically. */
+.study-paper-scope {
+  --study-accent: var(--ppr-accent);
+  --study-accent-dark: var(--ppr-accent-dark);
+  --study-accent-soft: var(--ppr-accent-soft);
+}
+
+/* ---- Subject list ---------------------------------------------------- */
+.study-subjects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 240px));
+  gap: 12px;
+  justify-content: start;
+}
+.study-subject-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  /* v1.2.0: border-left color is now set inline per-card (see study.js)
+     from the subject's own chart color (custom or automatic-hash) rather
+     than a single fixed accent color for every card - this is also the
+     easiest place to glance at "which color is this subject in the pie
+     chart" without opening Stats. */
+  border-left: 4px solid var(--study-accent);
+  cursor: pointer;
+  position: relative;
+}
+.study-subject-name {
+  font-family: Georgia, serif;
+  font-weight: bold;
+  font-size: 1.05rem;
+  color: var(--study-accent-dark);
+  margin-right: 20px;
+  word-break: break-word;
+}
+.study-subject-total {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  margin-top: 4px;
+}
+.study-subject-del-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.study-subject-del-btn:hover { color: var(--pen); background: rgba(192, 57, 43, 0.1); }
+
+/* v1.2.0: manual per-subject chart color picker - a small round swatch
+   wrapping a native <input type="color">. The input itself is invisible
+   (opacity:0, exact same size/position as the swatch, stacked on top) so
+   clicking the swatch anywhere opens the browser's native color picker -
+   simplest possible cross-browser way to do this without a custom
+   picker widget/dependency. */
+.study-subject-swatch {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--card);
+  box-shadow: 0 0 0 1.5px var(--margin);
+  cursor: pointer;
+  display: block;
+}
+.study-subject-swatch:hover { box-shadow: 0 0 0 1.5px var(--study-accent-dark); }
+.study-subject-color-input {
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+}
+
+/* ---- Method choice (after clicking a subject, before starting) ------- */
+.study-method-panel { display: flex; flex-direction: column; gap: 14px; }
+.study-method-choice { display: flex; gap: 10px; flex-wrap: wrap; }
+.study-method-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 14px;
+  border-radius: var(--radius);
+  border: 2px solid var(--margin);
+  background: var(--card);
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: center;
+}
+.study-method-btn.selected {
+  border-color: var(--study-accent);
+  background: var(--study-accent-soft);
+  color: var(--study-accent-dark);
+}
+.study-pomodoro-settings {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  background: var(--study-accent-soft);
+  border-radius: 8px;
+  padding: 12px;
+}
+.study-pomodoro-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.study-pomodoro-settings input[type="number"] {
+  width: 80px;
+  padding: 9px 10px;
+  border-radius: 7px;
+  border: 1.5px solid var(--margin);
+}
+.study-settings-note {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  max-width: 100%;
+}
+
+/* ---- Focus / active-session view -------------------------------------*/
+.study-focus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 10px 10px;
+}
+.study-focus-subject {
+  font-family: Georgia, serif;
+  font-size: 1.3rem;
+  font-weight: bold;
+  color: var(--study-accent-dark);
+  text-align: center;
+}
+.study-focus-phase {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: var(--study-accent-soft);
+  color: var(--study-accent-dark);
+}
+.study-focus-phase.rest { background: rgba(59, 122, 87, 0.15); color: var(--success); }
+.study-ring-wrap { position: relative; width: 220px; height: 220px; }
+.study-ring { width: 100%; height: 100%; transform: rotate(-90deg); }
+.study-ring-track { fill: none; stroke: var(--paper-line); stroke-width: 7; }
+.study-ring-progress {
+  fill: none;
+  stroke: var(--study-accent);
+  stroke-width: 7;
+  stroke-linecap: round;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 0.4s linear;
+}
+.study-ring-progress.rest { stroke: var(--success); }
+.study-ring-progress.spin-forever {
+  animation: study-spin 1.6s linear infinite;
+  transition: none;
+}
+.study-ring-progress.spin-paused { animation-play-state: paused; }
+@keyframes study-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.study-ring-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.study-ring-time { font-size: 1.9rem; font-weight: bold; color: var(--ink); font-variant-numeric: tabular-nums; }
+.study-ring-sub { font-size: 0.75rem; color: var(--ink-soft); }
+.study-focus-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.study-focus-cycles { font-size: 0.82rem; color: var(--ink-soft); }
+
+/* ---- Stats ------------------------------------------------------------*/
+.study-year-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.study-year-nav button {
+  background: none;
+  border: 1.5px solid var(--margin);
+  border-radius: 7px;
+  cursor: pointer;
+  padding: 6px 12px;
+  font-size: 1rem;
+  color: var(--ink);
+}
+.study-year-nav button:hover { border-color: var(--study-accent); }
+.study-year-label { font-family: Georgia, serif; font-weight: bold; font-size: 1.1rem; }
+
+.study-stat-summary {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.study-stat-tile {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 18px;
+  min-width: 130px;
+}
+.study-stat-tile-value { font-size: 1.6rem; font-weight: bold; color: var(--study-accent-dark); }
+.study-stat-tile-label { font-size: 0.8rem; color: var(--ink-soft); }
+
+.study-stats-cols { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+.study-stats-col { flex: 1; min-width: 260px; }
+
+.study-pie-wrap { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.study-pie-legend { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; }
+.study-pie-legend-row { display: flex; align-items: center; gap: 8px; }
+.study-pie-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+.study-bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.study-bar-label { width: 110px; flex-shrink: 0; font-size: 0.85rem; text-align: right; }
+.study-bar-track { flex: 1; background: var(--study-accent-soft); border-radius: 6px; overflow: hidden; height: 18px; }
+.study-bar-fill { height: 100%; background: var(--study-accent); border-radius: 6px; }
+.study-bar-value { width: 70px; flex-shrink: 0; font-size: 0.8rem; color: var(--ink-soft); }
+
+/* v1.2.1: Stats' "Study vs Rec, per subject" bar - two color segments
+   sitting side by side in one track (not stacked/overlaid), each sized
+   relative to the same cross-subject max so the combined bar length
+   still reads as "how much total time", split by where it came from.
+   v1.3.7: three segments now (Study + Rec + Paper), same mechanic.
+   Its value column needs more room than the plain single-number one
+   above ("4h 5m studied · 1h 20m watched" is longer than "4h 5m"). */
+.study-bar-track-split { flex: 1; display: flex; background: var(--paper-line); border-radius: 6px; overflow: hidden; height: 18px; }
+.study-bar-fill-study { height: 100%; background: var(--study-accent); }
+.study-bar-fill-rec { height: 100%; background: var(--rec-accent); }
+.study-bar-fill-paper { height: 100%; background: var(--ppr-accent); }
+.study-bar-row.split .study-bar-value { width: 250px; }
+.study-split-legend { display: flex; gap: 16px; font-size: 0.8rem; color: var(--ink-soft); flex-wrap: wrap; }
+.study-split-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.study-split-swatch { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.study-split-swatch-study { background: var(--study-accent); }
+.study-split-swatch-rec { background: var(--rec-accent); }
+.study-split-swatch-paper { background: var(--ppr-accent); }
+
+/* v1.3.7: the three global Study/Rec/Paper toggles next to the "Time by
+   subject" pie - which kinds of tracked time are included in the pie and
+   per-subject bars. Global + persisted (config.json, GET/PUT
+   /api/settings/study-chart-filters) - an "off" toggle is visually
+   dimmed/struck through so the current state is obvious at a glance. */
+.study-filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 14px; }
+.study-filter-row .study-filter-label { font-size: 0.8rem; color: var(--ink-soft); font-weight: 600; margin-right: 2px; }
+.study-filter-btn {
+  border: 1.5px solid var(--margin);
+  background: var(--card);
+  color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.study-filter-btn:hover { border-color: var(--study-accent); }
+.study-filter-btn.on {
+  color: #fff;
+  opacity: 1;
+}
+.study-filter-btn.on[data-kind="study"] { background: var(--study-accent); border-color: var(--study-accent); }
+.study-filter-btn.on[data-kind="rec"] { background: var(--rec-accent); border-color: var(--rec-accent); }
+.study-filter-btn.on[data-kind="paper"] { background: var(--ppr-accent); border-color: var(--ppr-accent); }
+.study-filter-btn.off { opacity: 0.38; text-decoration: line-through; }
+
+/* v1.3.7: "Hours by month" stacked-by-subject bars - each month's bar is
+   a stack of subject-colored segments (sized by that subject's share of
+   the month's total), plus a details toggle that lists each segment's
+   exact time under the chart. */
+.study-monthly-bar-seg {
+  width: 100%;
+  border-radius: 0;
+}
+/* v1.3.7: segments stack bottom-up (track is flex-column with
+   justify-content:flex-end, and JS sorts them largest-first), so the
+   first child sits at the BOTTOM of the bar and the last at the TOP -
+   the corner rounding has to follow that, not the DOM order. */
+.study-monthly-bar-seg:first-child { border-radius: 0 0 5px 5px; }
+.study-monthly-bar-seg:last-child { border-radius: 5px 5px 0 0; }
+.study-monthly-bar-seg:only-child { border-radius: 5px 5px 0 0; }
+.study-monthly-detail-toggle {
+  margin-top: 12px;
+  border: 1.5px solid var(--margin);
+  background: var(--card);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.study-monthly-detail-toggle:hover { border-color: var(--study-accent); }
+.study-monthly-details { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.study-monthly-detail-row { font-size: 0.82rem; color: var(--ink); display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.study-monthly-detail-month { font-weight: 700; min-width: 38px; }
+.study-monthly-detail-item { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-soft); }
+.study-monthly-detail-swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex-shrink: 0; }
+
+.study-daycounts { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 6px; }
+.study-daycount { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.study-daycount-dot { width: 12px; height: 12px; border-radius: 50%; }
+
+/* ---- v1.2.0: "Hours by month" bar chart ------------------------------- */
+.study-monthly-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  height: 160px;
+  padding-top: 8px;
+}
+.study-monthly-bar-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.study-monthly-bar-col.future { opacity: 0.45; }
+.study-monthly-bar-track {
+  flex: 1;
+  width: 100%;
+  max-width: 26px;
+  display: flex;
+  /* v1.3.7: column direction so the subject-color segments (and the
+     plain fallback fill) stack inside the bar, with justify-content:
+     flex-end anchoring them to the BOTTOM of the track exactly like the
+     old single-fill row layout did (align-items:flex-end used to do that
+     when this was a row; in a column it would only matter horizontally,
+     which is harmless since segments are width:100%). */
+  flex-direction: column;
+  justify-content: flex-end;
+  background: var(--study-accent-soft);
+  border-radius: 5px;
+  overflow: hidden;
+}
+.study-monthly-bar-fill {
+  width: 100%;
+  background: var(--study-accent);
+  border-radius: 5px 5px 0 0;
+  min-height: 0;
+  transition: height 0.25s ease;
+}
+.study-monthly-bar-label { font-size: 0.72rem; color: var(--ink-soft); flex-shrink: 0; }
+
+/* ---- Calendar / year heatmap ------------------------------------------*/
+.study-heatmap-scroll { overflow-x: auto; padding-bottom: 6px; }
+/* v1.2.0 fix: the month labels used to sit in their own grid with a
+   14px column pitch (grid-auto-columns:14px, no gap) while the actual
+   day-cell grid just below uses a 13px+3px-gap = 16px pitch
+   (.study-heatmap-grid below). Those two numbers being different meant
+   every column drifted 2px further out of alignment than the last -
+   by the end of the year (~52 columns) the month label was landing
+   roughly 100px away from the column it was supposed to sit above.
+   Fixed by giving both grids the exact same column-track size AND gap,
+   so column N always lines up with column N no matter how far right you
+   scroll. margin-left is likewise set to match .study-heatmap-body's
+   20px daylabels width + 3px flex gap exactly (was 24px, an approximation
+   that happened to be close but not equal). */
+.study-heatmap-months {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 13px;
+  gap: 3px;
+  font-size: 0.68rem;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+  margin-left: 23px;
+}
+.study-heatmap-body { display: flex; gap: 3px; }
+.study-heatmap-daylabels {
+  display: grid;
+  grid-template-rows: repeat(7, 13px);
+  gap: 3px;
+  font-size: 0.62rem;
+  color: var(--ink-soft);
+  margin-right: 4px;
+  width: 20px;
+}
+.study-heatmap-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 13px);
+  grid-auto-flow: column;
+  grid-auto-columns: 13px;
+  gap: 3px;
+}
+.study-heat-cell {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  background: var(--paper-line);
+  cursor: pointer;
+}
+.study-heat-cell.future { cursor: default; opacity: 0.5; }
+.study-heat-cell.selected { outline: 2px solid var(--ink); outline-offset: 1px; }
+/* v1.3.7: today gets a ring around it (in addition to .selected's own
+   outline if today is also selected) so you can spot it at a glance even
+   on a full year of cells. */
+.study-heat-cell.today { box-shadow: inset 0 0 0 2px var(--pen); }
+/* v1.4.0: days with at least one ticked-off to-do get a tiny green dot
+   in the bottom-right corner - the calendar's at-a-glance "what I did
+   that day" marker (in addition to the day panel's Done list). */
+.study-heat-cell.has-todo::after {
+  content: '';
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #2ecc71;
+}
+.study-heat-cell { position: relative; }
+.study-heat-cell[data-level="1"] { background: #c9c2e8; }
+.study-heat-cell[data-level="2"] { background: #9a8dd1; }
+.study-heat-cell[data-level="3"] { background: #6c5bb5; }
+.study-heat-cell[data-level="4"] { background: var(--study-heat-4); }
+
+
+.study-heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.study-heatmap-legend-group { display: flex; align-items: center; gap: 4px; }
+
+.study-daylog-panel {
+  margin-top: 16px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+}
+.study-daylog-panel-title { font-weight: bold; margin-bottom: 8px; }
+
+/* v1.4.0: to-do section inside the Calendar day panel + the
+   "Schedule a to-do" form at the bottom of the Calendar tab. */
+.study-todo-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--paper-line); }
+.study-todo-section-title { font-size: 0.92rem; margin: 0 0 6px; }
+.study-todo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.study-todo-row:hover { background: var(--card-hover, rgba(128, 128, 128, 0.08)); }
+.study-todo-row.done .study-todo-text { text-decoration: line-through; color: var(--ink-soft); }
+.study-todo-tick { color: #2ecc71; font-weight: bold; }
+.study-todo-text { flex: 1; min-width: 0; word-break: break-word; }
+.study-todo-check, .study-todo-uncheck, .study-todo-del {
+  border: 1px solid var(--paper-line);
+  background: var(--card);
+  border-radius: 6px;
+  width: 26px;
+  height: 24px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.study-todo-check:hover { background: #2ecc71; color: #fff; border-color: #2ecc71; }
+.study-todo-del:hover { background: #c0392b; color: #fff; border-color: #c0392b; }
+.study-todo-add-row { display: flex; gap: 8px; margin-top: 10px; }
+.study-todo-add-row input { flex: 1; min-width: 0; }
+.study-todo-schedule-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.study-todo-schedule-row input[type="text"] { flex: 1; min-width: 220px; }
+.study-todo-schedule-row input[type="date"] { flex-shrink: 0; }
+.study-todo-schedule .hint { margin-top: 8px; }
+
+/* v1.3.7: in-tab content transition. study.js re-triggers this class on
+   the tab-body container AFTER each tab's async content has finished
+   loading (see retriggerTabAnim() in study.js), so the actual content
+   fades/slides in smoothly instead of popping in statically under the
+   old #view-only animation (which finished during the "Loading…" state).
+   Deliberately NOT triggered by the 1s focus polls - only on tab
+   switches - so a running timer never re-animates every tick. */
+.study-tab-anim { animation: study-tab-enter 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes study-tab-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .study-tab-anim { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .study-ring-wrap { width: 180px; height: 180px; }
+  .study-bar-label { width: 80px; font-size: 0.78rem; }
+}

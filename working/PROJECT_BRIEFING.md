@@ -5,19 +5,6 @@ project with full context, without needing the entire chat history that
 built it. Paste this whole file as the first message in a new
 conversation, along with the current project zip.
 
-## v1.6.4 (for future sessions)
-
-This version includes:
-- CCTV stream keep-alive ping every 3s while tab visible to prevent stream timeout
-- Study timer chip for Rec/Paper showing active timer status on every subsystem
-- Camera reorder button in CCTV section with server-side saving
-
-Rules for future work:
-- Never rename an existing subsystem id once shipped - it's stored in user configs
-- Each subsystem must have its own store, routes, and frontend module
-- Keep the independent subsystem pattern - no cross-references between subsystems
-- All data lives in data/ folder and is never touched by updates
-
 ## What this project is
 
 A personal, self-hosted website that runs on the user's own Windows PC

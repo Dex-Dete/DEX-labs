@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Websites on this computer</title>
+<link rel="icon" href="favicon.ico" />
+<link rel="icon" type="image/svg+xml" href="favicon.svg" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="head">
+      <h1>🏠 Websites on this computer</h1>
+      <p class="sub">
+        Anything running on this PC can show up here with its own port -
+        tap a card to open it in a new tab. This page itself always lives
+        at just this address, no port needed; each site below opens on
+        its own port.
+      </p>
+    </header>
+
+    <section class="discover-panel">
+      <div class="discover-head">
+        <h2>🔎 Found on your network</h2>
+        <span id="discover-status" class="discover-status">Scanning…</span>
+      </div>
+      <p class="sub discover-sub">
+        Other websites running on devices on this same network - routers,
+        cameras/NVRs, other DEX Labs machines, consoles, and more - found
+        automatically. Only currently-reachable ones are shown; this
+        refreshes on its own, nothing to press. Only scans this local
+        network, not the internet - use it on networks you own or are
+        allowed to look around on, since it will show any device that
+        answers, including neighbours' on a shared/apartment network.
+      </p>
+      <div id="discover-list" class="sites-grid">
+        <div class="empty-state">Scanning your network…</div>
+      </div>
+    </section>
+
+    <h2 class="saved-sites-title">Your saved websites</h2>
+    <div id="sites-list" class="sites-grid">
+      <div class="empty-state">Loading…</div>
+    </div>
+
+    <section class="panel add-panel">
+      <h2 id="add-panel-title">Add a website</h2>
+      <div class="add-row">
+        <input type="text" id="site-name" placeholder="Name (e.g. Plex, Router admin)" maxlength="60" />
+        <input type="number" id="site-port" placeholder="Port" min="1" max="65535" />
+      </div>
+      <div class="add-row">
+        <input type="text" id="site-path" placeholder="Path (optional, e.g. /admin)" maxlength="200" />
+        <input type="text" id="site-note" placeholder="Note (optional)" maxlength="200" />
+      </div>
+      <div class="add-row add-actions">
+        <button class="btn" id="site-save-btn">Add</button>
+        <button class="btn secondary" id="site-cancel-edit-btn" hidden>Cancel edit</button>
+      </div>
+      <div id="add-error"></div>
+    </section>
+
+    <footer class="foot">DEX Labs Landing Page</footer>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

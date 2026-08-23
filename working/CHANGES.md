@@ -1,11 +1,3 @@
-# DEX Labs v1.6.4 - Changes
-
-**1. CCTV stream keep-alive:** Added 3-second keep-alive ping while CCTV tab is visible to prevent stream timeout after 4 minutes of viewing multiple cameras.
-
-**2. Study timer chip for Rec/Paper:** Added `rec-chip` and `paper-chip` to the top bar that display active Rec/Paper timer status matching the study chip behavior. Chip shows `🎥 SubjectName · HH:MM:SS` for Rec and `📝 SubjectName · HH:MM:SS` for Paper, counting down/up every second and tap-to-open-study.
-
-**3. Camera reorder button:** Added `↕ Reorder` button in CCTV toolbar that prompts for new camera order as comma-separated IDs and saves via new `/api/cctv/reorder` endpoint.
-
 # DEX Labs v1.6.3 - Changes
 
 Third (and decisive) round on the CCTV switching problem, plus the

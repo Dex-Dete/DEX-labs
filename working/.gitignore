@@ -1,0 +1,26 @@
+# Personal data and generated files
+data/
+landing-page/data/
+uploads/
+uploads-airdrop/
+downloads-youtube/
+backups/
+globalnetwork-tmp/
+node_modules/
+logs.txt
+# ffmpeg binaries - too big for GitHub (100MB/file limit); they ship in
+# the release zip under tools-youtube/ instead (see README).
+tools-youtube/ffmpeg.exe
+tools-youtube/ffplay.exe
+tools-youtube/ffprobe.exe
+# Release zips - built per release (see AGENTS.md); never commit them.
+DEX-Labs-*.zip
+*.tmp
+.env
+.env.*
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

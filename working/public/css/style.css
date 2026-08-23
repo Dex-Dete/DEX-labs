@@ -1,0 +1,914 @@
+/* ---- Design tokens -------------------------------------------------
+   Palette (exercise-book): paper #F3ECD9, ink #1F2C4C, pen-red #C0392B,
+   highlighter #D9A32B, margin-line #B9C4D6, success #3B7A57
+   Type: Georgia (display/headers, textbook feel) + system-ui (body/UI)
+   No external font/CDN loads - must work offline on a home LAN.
+----------------------------------------------------------------------*/
+:root {
+  --paper: #f3ecd9;
+  --paper-line: #d9cead;
+  --card: #fbf7ec;
+  --ink: #1f2c4c;
+  --ink-soft: #4a5673;
+  --pen: #c0392b;
+  --pen-dark: #9c2e21;
+  --highlight: #d9a32b;
+  --margin: #b9c4d6;
+  --success: #3b7a57;
+  --gold-text: #8a6416;
+  --error-soft-bg: #f6e6e6;
+  --radius: 10px;
+  --shadow: 0 2px 6px rgba(31, 44, 76, 0.12), 0 1px 2px rgba(31, 44, 76, 0.08);
+  /* v1.3.1 bug fix: the header bar (.topbar) was deliberately built as
+     an ALWAYS-dark bar with light text (background: var(--ink); color:
+     var(--paper);) - that only ever looked right in light mode, where
+     --ink is dark and --paper is light. Dark mode's override block
+     below swaps which of --ink/--paper is dark and which is light (by
+     design, everywhere else on the page), which flipped the topbar's
+     colors right along with it - the actual v1.3.0 bug (a bright white
+     header bar in dark mode). Fixing this properly means the header
+     needs its own fixed dark navy / cream pair that does NOT change
+     with the theme toggle, instead of reusing --ink/--paper. */
+  --topbar-bg: #1f2c4c;
+  --topbar-fg: #f3ecd9;
+  font-size: 16px;
+}
+
+/* ---- v1.3.0: global dark mode -------------------------------------
+   Same design-token approach as the light palette above, just an
+   alternate set of values under [data-theme="dark"] on <html>. Because
+   the whole site already renders off these variables (var(--paper),
+   var(--ink), etc. - see every subsystem's CSS file), flipping the
+   attribute re-themes the entire site, not just the shared chrome.
+   app.js sets/removes this attribute based on GET /api/settings/theme
+   (see routes/settings.js) - manual toggle, or the fixed-hours auto
+   schedule if no manual override is active.
+----------------------------------------------------------------------*/
+html[data-theme="dark"] {
+  --paper: #171c30;
+  --paper-line: #262e4d;
+  --card: #212949;
+  --ink: #eef1f8;
+  --ink-soft: #aab4cf;
+  --pen: #e0574a;
+  --pen-dark: #c94435;
+  --highlight: #e8bd5a;
+  --margin: #3a4568;
+  --success: #5cb17e;
+  --gold-text: #e8c66b;
+  --error-soft-bg: #3a2430;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.35);
+  /* Slightly richer/deeper than light mode's --topbar-bg so the header
+     doesn't look completely flat against the also-dark page body below
+     it - still always dark, on purpose, in both themes. */
+  --topbar-bg: #10152a;
+  --topbar-fg: #f3ecd9;
+}
+
+html, body { transition: background-color 0.25s ease, color 0.25s ease; }
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+body {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 34px,
+    var(--paper-line) 34px,
+    var(--paper-line) 35px
+  );
+}
+
+h1, h2, h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  color: var(--ink);
+  margin: 0 0 4px;
+}
+
+button, input, select {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+a { color: var(--pen); }
+
+/* ---- Layout ---- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
+  box-shadow: var(--shadow);
+}
+.topbar .brand {
+  font-family: Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: bold;
+  letter-spacing: 0.3px;
+  flex: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+}
+.topbar .brand .subsystem-label {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--highlight);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.topbar .brand .subsystem-label::before { content: "› "; opacity: 0.6; }
+.topbar .brand .tab-mark {
+  display: inline-block;
+  width: 10px;
+  height: 18px;
+  background: var(--highlight);
+  margin-right: 8px;
+  border-radius: 2px;
+  vertical-align: -3px;
+}
+/* v1.6.3: always-visible chip for a running Study session - shows live
+   anywhere (CCTV included) so the timer never "disappears" when you
+   leave Study; tap it to jump back. Driven by app.js. The [hidden]
+   rule matters: display:inline-flex would otherwise override the
+   hidden attribute. */
+.study-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(243, 236, 217, 0.12);
+  border: 1px solid rgba(243, 236, 217, 0.4);
+  color: var(--topbar-fg);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+}
+.study-chip:hover { background: rgba(243, 236, 217, 0.22); border-color: var(--highlight); }
+.study-chip[hidden] { display: none; }
+.study-chip::before { content: '●'; color: #2ecc71; animation: study-chip-blink 1.2s infinite; }
+@keyframes study-chip-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+.subsystem-nav { display: flex; align-items: center; gap: 6px; }
+.icon-btn {
+  background: transparent;
+  border: 1px solid rgba(243, 236, 217, 0.4);
+  color: var(--topbar-fg);
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.icon-btn:hover { background: rgba(243, 236, 217, 0.12); }
+
+/* Hamburger toggle - hidden on desktop, shown only under the mobile
+   breakpoint below. Pure CSS show/hide driven by a max-width query;
+   the .open state toggling on #subsystem-nav is handled by app.js. */
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid rgba(243, 236, 217, 0.4);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+}
+.nav-toggle span {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--topbar-fg);
+  border-radius: 2px;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+.nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+.nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+.nav-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 44, 76, 0.45);
+  z-index: 9;
+}
+.nav-backdrop.show { display: block; }
+
+.nav-link {
+  background: transparent;
+  border: 1px solid rgba(243, 236, 217, 0.4);
+  color: var(--topbar-fg);
+  padding: 7px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.nav-link:hover { background: rgba(243, 236, 217, 0.12); border-color: var(--highlight); }
+.nav-link.active {
+  background: var(--highlight);
+  border-color: var(--highlight);
+  color: var(--topbar-bg);
+}
+.nav-link.active:hover { background: var(--highlight); }
+
+/* v1.3.4: every nav button (subsystem links + Settings) always renders
+   both spans below - which one is visible is controlled purely by a
+   class on <body>, toggled by the switch in the topbar. Default is
+   icon-only; ".nav-mode-name" on <body> switches to name-only. This is
+   the single place that decides icon-vs-name display, so mobile's
+   off-canvas nav and desktop's inline nav (same button markup, just
+   repositioned by the breakpoint below) always agree with each other. */
+.nav-icon { font-size: 1rem; line-height: 1; }
+.nav-name { display: none; }
+body.nav-mode-name .nav-icon { display: none; }
+body.nav-mode-name .nav-name { display: inline; }
+body.nav-mode-icon .subsystem-nav .nav-link {
+  padding: 7px 12px;
+  min-width: 38px;
+  text-align: center;
+}
+
+/* v1.3.5: small reusable toggle-switch component - used by the header's
+   day/night switch below AND by Settings > Navigation's icon/name
+   switch (settings.css). `currentColor` for the track/thumb means each
+   usage site just needs the right `color` in scope (topbar context
+   already sets color: var(--topbar-fg); Settings' panel context uses
+   the page's normal var(--ink)) rather than needing its own copy of
+   this whole block. */
+.toggle-switch { position: relative; display: inline-flex; flex-shrink: 0; }
+.toggle-switch input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+.toggle-track {
+  display: block;
+  width: 38px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(128, 128, 128, 0.3);
+  border: 1px solid rgba(128, 128, 128, 0.45);
+  transition: background 0.15s ease;
+}
+.toggle-thumb {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 2px;
+  border-radius: 50%;
+  background: currentColor;
+  transition: transform 0.15s ease;
+}
+.toggle-switch input:checked + .toggle-track { background: var(--highlight); }
+.toggle-switch input:checked + .toggle-track .toggle-thumb { transform: translateX(18px); }
+.toggle-switch input:focus-visible + .toggle-track { outline: 2px solid var(--highlight); outline-offset: 2px; }
+
+/* Header day/night switch - replaces the old single icon button so it's
+   unambiguous which state is "on" without having to read a swapped
+   glyph. Sun/moon bookend the switch; whichever side is active gets a
+   subtle highlight so it's readable at a glance. */
+.nav-theme-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--topbar-fg);
+  user-select: none;
+}
+.nav-theme-icon { font-size: 0.85rem; opacity: 0.55; }
+html[data-theme="light"] .nav-theme-icon:first-child,
+html[data-theme="dark"] .nav-theme-icon:last-child { opacity: 1; }
+/* v1.3.7: the header's day/night control is now a proper PHYSICAL
+   slider (not a button) - bigger track + thumb than the generic
+   .toggle-switch component so it reads as a thing you push, with a
+   drop shadow on the thumb for a bit of tactile depth. */
+.nav-theme-toggle .toggle-track { width: 48px; height: 26px; }
+.nav-theme-toggle .toggle-thumb { width: 20px; height: 20px; margin: 2px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.45); }
+.nav-theme-toggle .toggle-switch input:checked + .toggle-track .toggle-thumb { transform: translateX(22px); }
+
+/* v1.3.5: nav-icon-grid wraps the subsystem buttons + Settings; nav-
+   bottom-row wraps the LAN button + day/night switch. `display:contents`
+   on desktop means these wrappers don't affect layout at all - the
+   .subsystem-nav flex row above still sees all of these as direct
+   children, exactly like before v1.3.5. The mobile breakpoint below
+   turns them into two real, separately-laid-out blocks. */
+.nav-icon-grid, .nav-bottom-row { display: contents; }
+
+.crumbs {
+  padding: 10px 18px 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.crumbs a { cursor: pointer; text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+
+main {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 18px 18px 90px;
+}
+
+.page-title {
+  font-size: 1.6rem;
+  margin: 6px 0 18px;
+}
+.page-sub {
+  color: var(--ink-soft);
+  margin: -12px 0 18px;
+  font-size: 0.95rem;
+}
+
+/* ---- Subject cards (spine-tab index cards) ---- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+.subject-card {
+  position: relative;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 22px 16px 16px;
+  cursor: pointer;
+  border: 1px solid rgba(31, 44, 76, 0.06);
+  transition: transform 0.12s ease;
+}
+.subject-card:active { transform: scale(0.97); }
+.subject-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  width: 34px;
+  height: 10px;
+  background: var(--tab-color, var(--pen));
+  border-radius: 0 0 4px 4px;
+}
+.subject-card h3 {
+  font-size: 1.05rem;
+  margin-top: 4px;
+}
+.subject-card .meta {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.add-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--margin);
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+  cursor: pointer;
+  min-height: 88px;
+  font-size: 0.95rem;
+  background: transparent;
+}
+.add-card:hover { border-color: var(--pen); color: var(--pen); }
+
+/* ---- Choice tiles (Grades / Tutes) ---- */
+.choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 480px) {
+  .choice-row { grid-template-columns: 1fr; }
+}
+.choice-tile {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 18px;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid rgba(31, 44, 76, 0.06);
+}
+.choice-tile:active { transform: scale(0.98); }
+.choice-tile .big-label {
+  font-family: Georgia, serif;
+  font-size: 1.3rem;
+  margin-bottom: 4px;
+}
+.choice-tile .desc { color: var(--ink-soft); font-size: 0.85rem; }
+.choice-tile.grade10::before,
+.choice-tile.grade11::before { content: "✎  "; }
+.choice-tile.category-tile::before { content: "✎  "; }
+.choice-row.category-row { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+.choice-tile.add-category-tile {
+  border: 2px dashed var(--margin);
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink-soft);
+}
+.choice-tile.add-category-tile:hover { border-color: var(--pen); color: var(--pen); }
+.choice-tile.add-category-tile .big-label { font-size: 1.05rem; }
+.choice-tile.category-tile { position: relative; }
+.category-del-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.category-del-btn:hover { color: var(--pen); background: rgba(192, 57, 43, 0.1); }
+.category-tile[data-role="label"], .category-tile .big-label { cursor: text; }
+
+/* ---- Forms ---- */
+.panel {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-bottom: 18px;
+  border: 1px solid rgba(31, 44, 76, 0.06);
+}
+.form-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+input[type="text"], input[type="url"] {
+  flex: 1;
+  min-width: 180px;
+  padding: 11px 12px;
+  border-radius: 7px;
+  border: 1.5px solid var(--margin);
+  background: var(--card);
+  color: var(--ink);
+}
+input[type="text"]:focus, input[type="url"]:focus {
+  outline: 2px solid var(--highlight);
+  outline-offset: 1px;
+  border-color: var(--highlight);
+}
+.btn {
+  padding: 11px 18px;
+  border-radius: 7px;
+  border: none;
+  background: var(--pen);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn:hover { background: var(--pen-dark); }
+.btn:disabled { background: var(--margin); cursor: default; }
+.btn.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1.5px solid var(--margin);
+}
+.btn.secondary:hover { border-color: var(--ink); }
+.hint { font-size: 0.8rem; color: var(--ink-soft); margin-top: 6px; }
+.add-error {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: rgba(192, 57, 43, 0.1);
+  border: 1px solid rgba(192, 57, 43, 0.35);
+  color: var(--pen-dark);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.add-error.add-warning {
+  background: rgba(230, 168, 23, 0.12);
+  border-color: rgba(230, 168, 23, 0.4);
+  color: var(--gold-text);
+}
+
+/* ---- Lesson list ---- */
+.watch-progress {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.lesson-list { display: flex; flex-direction: column; gap: 10px; }
+.lesson-item {
+  display: flex;
+  gap: 12px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px;
+  align-items: center;
+  border: 1px solid rgba(31, 44, 76, 0.06);
+}
+.lesson-item .thumb-wrap {
+  position: relative;
+  width: 100px;
+  height: 62px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.lesson-item img {
+  width: 100px;
+  height: 62px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--margin);
+  flex-shrink: 0;
+  display: block;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+.lesson-item.watched .thumb-wrap img {
+  filter: blur(4px);
+  opacity: 0.55;
+}
+.lesson-item .watched-badge {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(31, 44, 76, 0.35);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.lesson-item.watched .watched-badge { display: flex; }
+.lesson-item.watched .info a { color: var(--ink-soft); }
+.lesson-item .info { flex: 1; min-width: 0; }
+.lesson-item .info a {
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--ink);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lesson-item .info a:hover { color: var(--pen); }
+.lesson-item .tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  background: rgba(217, 163, 43, 0.22);
+  color: var(--gold-text);
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-top: 4px;
+}
+.del-btn {
+  background: transparent;
+  border: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 6px 10px;
+}
+.del-btn:hover { color: var(--pen); }
+
+/* ---- Tutes / files ---- */
+.dropzone {
+  border: 2px dashed var(--margin);
+  border-radius: var(--radius);
+  padding: 26px 16px;
+  text-align: center;
+  color: var(--ink-soft);
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.4);
+}
+.dropzone.drag { border-color: var(--pen); color: var(--pen); background: rgba(192, 57, 43, 0.06); }
+
+.file-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  border: 1px solid rgba(31, 44, 76, 0.06);
+}
+.file-item .ficon {
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: bold; flex-shrink: 0;
+}
+.file-item .info { flex: 1; min-width: 0; }
+.file-item .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-item .size { font-size: 0.78rem; color: var(--ink-soft); }
+.file-item a.dl { text-decoration: none; color: var(--pen); font-weight: 600; font-size: 0.85rem; }
+
+.progress-wrap {
+  height: 8px;
+  background: var(--margin);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.progress-bar {
+  height: 100%;
+  background: var(--success);
+  width: 0%;
+  transition: width 0.15s ease;
+}
+.upload-row { font-size: 0.85rem; color: var(--ink-soft); margin-top: 6px; }
+
+.empty-state {
+  text-align: center;
+  color: var(--ink-soft);
+  padding: 30px 10px;
+  font-size: 0.95rem;
+}
+
+.toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--topbar-bg);
+  color: var(--topbar-fg);
+  padding: 10px 18px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  font-size: 0.85rem;
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.toast.show { opacity: 1; }
+
+.build-footer {
+  text-align: center;
+  font-size: 0.7rem;
+  color: var(--margin);
+  padding: 4px 0 14px;
+}
+
+/* ---- Info button ---- */
+.info-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 4px 8px;
+  flex-shrink: 0;
+}
+.info-btn:hover { color: var(--highlight); }
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(31, 44, 76, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.modal-box {
+  background: var(--card);
+  border-radius: var(--radius);
+  max-width: 560px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+}
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(31, 44, 76, 0.08);
+}
+.modal-title {
+  font-family: Georgia, serif;
+  font-size: 1.15rem;
+  line-height: 1.4;
+}
+.modal-close {
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--ink-soft);
+  flex-shrink: 0;
+}
+.modal-close:hover { color: var(--pen); }
+.modal-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+}
+.modal-description {
+  white-space: normal;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(31,44,76,0.25);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .subject-card, .choice-tile, .progress-bar, .toast { transition: none; }
+  .spinner { animation: none; }
+  .dex-view-anim { animation: none; }
+}
+
+/* v1.3.7: subsystem-switch transition. app.js re-triggers this class on
+   #view only when the active SUBSYSTEM actually changes (not on every
+   in-subsystem tab click - see dispatch() in app.js): a fade + slight
+   rise with a springy ease-out so switching subsystems feels like a
+   deliberate transition rather than an instant text swap. The smooth
+   cubic-bezier (overshoot-y easing with no bounce) keeps it quick but
+   not jarring. Off entirely under prefers-reduced-motion above. */
+.dex-view-anim { animation: dex-view-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes dex-view-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: 2px;
+}
+
+/* ======================================================================
+   Mobile layout (<=768px)
+   The desktop topbar crams brand + 4 nav buttons + LAN button into one
+   row that has no room to breathe on a phone. Below this breakpoint the
+   subsystem nav becomes a slide-down menu opened by a hamburger button
+   (JS-driven via .open on #subsystem-nav, see app.js), and everything
+   else gets roomier tap targets / tighter spacing so nothing overflows
+   or requires horizontal scrolling.
+   ====================================================================== */
+@media (max-width: 768px) {
+  .topbar {
+    padding: 12px 14px;
+    flex-wrap: nowrap;
+  }
+  .topbar .brand {
+    font-size: 1.05rem;
+    gap: 8px;
+  }
+  .topbar .brand .subsystem-label { display: none; }
+
+  .nav-toggle { display: flex; }
+
+  .subsystem-nav {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: min(78vw, 300px);
+    background: var(--topbar-bg);
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    padding: 70px 16px 24px;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3);
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    z-index: 10;
+    overflow-y: auto;
+  }
+  .subsystem-nav.open { transform: translateX(0); }
+  .subsystem-nav .nav-link,
+  .subsystem-nav .icon-btn {
+    width: 100%;
+    text-align: left;
+    padding: 13px 16px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+  }
+
+  /* v1.3.5: compact square-icon grid for the subsystem+Settings buttons,
+     replacing the old one-full-width-row-per-button list - each tile
+     only needs a little breathing room from its neighbors, not a whole
+     row. Falls back to the previous stacked list automatically in name
+     mode, since full subsystem names need horizontal room a square tile
+     can't give them. */
+  .subsystem-nav .nav-icon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .subsystem-nav .nav-icon-grid .nav-link {
+    width: auto;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 10px;
+  }
+  .subsystem-nav .nav-icon-grid .nav-link .nav-icon { font-size: 1.4rem; }
+  body.nav-mode-name .subsystem-nav .nav-icon-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  body.nav-mode-name .subsystem-nav .nav-icon-grid .nav-link {
+    width: 100%;
+    aspect-ratio: auto;
+    justify-content: flex-start;
+    padding: 13px 16px;
+  }
+
+  /* LAN address + day/night switch, grouped below the icon grid rather
+     than mixed in with the subsystem buttons above. v1.3.7: margin-top
+     auto pins this row to the very bottom of the (flex-column) nav panel
+     so the day/night slider is always the lowest, last thing visible on
+     mobile, even when the icon grid grows taller than the screen. */
+  .subsystem-nav .nav-bottom-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 14px;
+    margin-top: auto;
+    border-top: 1px solid rgba(243, 236, 217, 0.2);
+  }
+  .subsystem-nav .nav-bottom-row .nav-lan-btn { border-radius: 8px; }
+  .subsystem-nav .nav-theme-toggle { justify-content: space-between; }
+
+  main { padding: 14px 14px 90px; }
+  .page-title { font-size: 1.35rem; }
+  .crumbs { padding: 8px 14px 0; }
+
+  .grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+
+  .lesson-item { padding: 8px; gap: 10px; }
+  .lesson-item .thumb-wrap,
+  .lesson-item img { width: 84px; height: 52px; }
+
+  .timers-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .timer-ring, .timer-card-inner { width: 84px; height: 84px; }
+
+  .del-btn, .info-btn { padding: 8px 10px; }
+
+  .modal-overlay { padding: 0; align-items: flex-end; }
+  .modal-box {
+    max-width: none;
+    max-height: 86vh;
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .topbar .brand { font-size: 0.95rem; }
+  .file-item, .lesson-item { flex-wrap: wrap; }
+  .file-item .info, .lesson-item .info { min-width: 140px; }
+}

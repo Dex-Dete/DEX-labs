@@ -1,0 +1,329 @@
+/* CCTV subsystem - v1.6.0. Responsive live camera grid that works on
+   portrait phones, landscape phones, tablets, and desktop. Matches the
+   visual language of the other subsystems (var(--card), var(--ink),
+   .panel, .btn) but stays in its own file, same isolation pattern. */
+
+.cctv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.cctv-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  background: var(--card);
+  color: var(--ink-soft);
+  border: 1px solid var(--paper-line);
+  box-shadow: var(--shadow);
+}
+
+.cctv-status-light {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e74c3c;
+  flex-shrink: 0;
+}
+.cctv-status-light.on { background: #2ecc71; box-shadow: 0 0 6px #2ecc71; }
+
+.cctv-toolbar .btn { padding: 5px 14px; font-size: 0.8rem; }
+
+/* Camera grid - the heart of the page. auto-fill + minmax keeps the
+   number of columns fluid with the available width: 1 col on small
+   portrait phones, 2-3 on tablets, up to 4-6 on desktop. */
+.cctv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr));
+  gap: 10px;
+}
+
+.cctv-tile {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--paper-line);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cctv-tile-video {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+}
+
+.cctv-tile-video img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cctv-tile-nosignal {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 8px;
+}
+.cctv-tile-nosignal.show { display: flex; }
+
+.cctv-tile-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 9px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72), rgba(0, 0, 0, 0));
+  color: #fff;
+  font-size: 0.78rem;
+  pointer-events: none;
+}
+
+.cctv-tile-name { font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.cctv-tile-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+.cctv-tile-live::before {
+  content: '●';
+  color: #e74c3c;
+  animation: cctv-blink 1.2s infinite;
+}
+.cctv-tile-live.off { color: rgba(255,255,255,0.7); }
+.cctv-tile-live.off::before { color: #e74c3c; animation: none; }
+
+@keyframes cctv-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+/* ---------- Full-screen viewer ---------- */
+/* v1.6.3: the viewer now starts BELOW the sticky top bar (its top is
+   --cctv-fs-top, set by cctv.js from the bar's real height) instead of
+   covering the whole screen. That means the DEX Labs brand, the
+   subsystem nav and the hamburger are physically never underneath it -
+   they're always visible and tappable on every browser, no z-index
+   games, even in a tab that hasn't reloaded since an update. */
+.cctv-fs {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: var(--cctv-fs-top, 0px);
+  z-index: 9999;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  animation: cctv-fs-in 0.18s ease-out;
+}
+@keyframes cctv-fs-in { from { opacity: 0; } to { opacity: 1; } }
+
+.cctv-fs-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 0.9rem;
+  background: rgba(0,0,0,0.55);
+  z-index: 2;
+  flex-shrink: 0;
+}
+.cctv-fs-name { font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cctv-fs-top .btn { padding: 4px 12px; font-size: 0.78rem; }
+.cctv-fs-close {
+  border: 1px solid rgba(255,255,255,0.35);
+  background: transparent;
+  color: #fff;
+  border-radius: 6px;
+  width: 32px;
+  height: 30px;
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.cctv-fs-close:hover { background: rgba(255,255,255,0.15); }
+
+.cctv-fs-video {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cctv-fs-video img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.cctv-fs-nosignal {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.5);
+  font-size: 1rem;
+  text-align: center;
+  padding: 20px;
+}
+.cctv-fs-nosignal.show { display: flex; }
+
+/* v1.6.1/1.6.2: with the full-screen viewer open, keep the top bar ABOVE
+   it so you can jump to another subsystem while watching - the viewer
+   closes itself as soon as a navigation happens (see CCTV.cleanup).
+   Two selector sets: body.cctv-fs-open (set by cctv.js running from a
+   freshly-loaded page) and body:has(.cctv-fs) as a pure-CSS fallback
+   that also covers a tab that's been open since BEFORE the JS update
+   (old JS still creates the same .cctv-fs overlay, so the CSS alone
+   lifts the top bar without needing any new code to run). */
+body.cctv-fs-open .topbar,
+body:has(.cctv-fs) .topbar { z-index: 10000; }
+body.cctv-fs-open .nav-backdrop,
+body:has(.cctv-fs) .nav-backdrop { z-index: 9998; }
+
+/* v1.6.2: the viewer's own "Switch" menu - subsystem chips rendered
+   inside the overlay itself, so switching works with zero dependence on
+   stacking order (see the #cctv-fs-switch-menu code in cctv.js). */
+.cctv-fs-switch {
+  position: relative;
+}
+.cctv-fs-switch-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 3;
+  min-width: 190px;
+  max-width: min(84vw, 320px);
+  background: var(--card);
+  border: 1px solid var(--paper-line);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.cctv-fs-switch-menu.show { display: flex; }
+.cctv-fs-switch-menu .cctv-fs-switch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+.cctv-fs-switch-menu .cctv-fs-switch-item:hover { background: rgba(31, 44, 76, 0.08); }
+.cctv-fs-switch-menu .cctv-fs-switch-item .nav-icon { font-size: 1.05rem; }
+
+/* ---------- Empty / setup states ---------- */
+.cctv-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 720px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--paper-line);
+}
+
+.cctv-empty h2 { margin: 0 0 4px; }
+
+.cctv-empty .form-row { width: 100%; }
+.cctv-empty label { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.cctv-empty label span { font-size: 0.82rem; color: var(--ink-soft); }
+.cctv-empty input {
+  padding: 7px 10px;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-size: 0.9rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.cctv-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; align-items: center; }
+.cctv-spinner {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--paper-line);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: cctv-spin 0.7s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes cctv-spin { to { transform: rotate(360deg); } }
+.cctv-discovery-result { font-size: 0.82rem; color: var(--ink-soft); margin-top: 8px; line-height: 1.5; }
+
+/* ---------- Responsive tuning ---------- */
+
+/* Small portrait phones (<480px wide): single column, tighter tiles.
+   Landscape phones (short viewport): 2 compact columns so several
+   cameras fit at once. */
+@media (max-width: 480px) {
+  .cctv-grid { grid-template-columns: 1fr; }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .cctv-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .cctv-tile-video { aspect-ratio: 16/9; }
+  .cctv-fs-top { padding: 6px 10px; font-size: 0.8rem; }
+}
+
+/* Tablets + small laptops: give tiles a bit more room. */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .cctv-grid { grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); }
+}
+
+/* Dark mode: keep tiles black for video contrast; only the chrome changes. */
+body.dex-dark .cctv-status-chip,
+body.dex-dark .cctv-empty {
+  background: var(--card);
+  border-color: var(--paper-line);
+}

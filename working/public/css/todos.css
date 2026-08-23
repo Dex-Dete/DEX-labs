@@ -1,0 +1,76 @@
+/* To-Do subsystem - v1.4.0. Matches the visual language of study.css/
+   sbm.css (var(--card), var(--ink-soft), .btn, .empty-state) but kept in
+   its own file, same isolation pattern as every other subsystem. */
+
+.todo-add-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.todo-add-row input[type="text"] { flex: 1; min-width: 220px; }
+.todo-add-row input[type="date"] { flex-shrink: 0; }
+
+.todo-filter-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.todo-filter-btn {
+  border: 1px solid var(--paper-line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.todo-filter-btn.on { background: var(--study-accent-dark, #4b3f8f); color: #fff; border-color: transparent; }
+
+.todo-list { max-width: 860px; }
+.todo-section-title { font-weight: bold; margin: 0 0 6px; font-size: 0.95rem; }
+
+.todo-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+.todo-row:hover { outline: 1px solid var(--paper-line); }
+.todo-row.done { opacity: 0.65; }
+.todo-row.done .todo-text { text-decoration: line-through; color: var(--ink-soft); }
+.todo-row.overdue { outline: 1px solid #c0392b; outline-offset: -1px; }
+.todo-row.due-today { outline: 1px solid #2ecc71; outline-offset: -1px; }
+
+.todo-check {
+  border: none;
+  background: transparent;
+  font-size: 1.15rem;
+  cursor: pointer;
+  color: var(--ink);
+  flex-shrink: 0;
+  padding: 2px 4px;
+  line-height: 1;
+}
+.todo-check:hover { color: #2ecc71; }
+
+.todo-text { flex: 1; min-width: 0; word-break: break-word; }
+
+.todo-due {
+  border: 1px solid var(--paper-line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  padding: 2px 6px;
+  flex-shrink: 0;
+}
+
+.todo-del {
+  border: 1px solid var(--paper-line);
+  background: var(--card);
+  color: var(--ink-soft);
+  border-radius: 6px;
+  width: 26px;
+  height: 24px;
+  line-height: 1;
+  cursor: pointer;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.todo-del:hover { background: #c0392b; color: #fff; border-color: #c0392b; }

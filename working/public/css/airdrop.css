@@ -1,0 +1,341 @@
+/* ---- AirDrop --------------------------------------------------------
+   Deliberately its own accent color (blue, "signal" feel) so it reads as
+   a distinct tool living on the same site rather than part of Lesson
+   Tracker. Reuses the base design tokens (--paper, --card, --ink, etc.)
+   from style.css for consistency, but every class here is prefixed
+   .airdrop- so nothing collides or gets mixed up with lesson-tracker CSS.
+-----------------------------------------------------------------------*/
+:root {
+  --airdrop-accent: #2f6690;
+  --airdrop-accent-dark: #234d6d;
+  --airdrop-accent-soft: rgba(47, 102, 144, 0.12);
+}
+
+/* v1.3.5: see study.css's matching block for the full explanation. */
+html[data-theme="dark"] {
+  --airdrop-accent: #4f9fd6;
+  --airdrop-accent-dark: #8fc6ec;
+  --airdrop-accent-soft: rgba(79, 159, 214, 0.22);
+}
+
+.airdrop-page-sub {
+  color: var(--ink-soft);
+  margin: -12px 0 18px;
+  font-size: 0.95rem;
+}
+
+.airdrop-dropzone {
+  border: 2px dashed var(--airdrop-accent);
+  border-radius: var(--radius);
+  padding: 34px 16px;
+  text-align: center;
+  color: var(--airdrop-accent-dark);
+  cursor: pointer;
+  background: var(--airdrop-accent-soft);
+  font-weight: 600;
+}
+.airdrop-dropzone .hint { font-weight: 400; }
+.airdrop-dropzone.drag {
+  background: rgba(47, 102, 144, 0.22);
+  border-color: var(--airdrop-accent-dark);
+}
+
+.airdrop-list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+.airdrop-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+  border: 1px solid rgba(31, 44, 76, 0.06);
+  border-left: 4px solid var(--airdrop-accent);
+}
+.airdrop-item .ficon {
+  width: 38px; height: 38px;
+  border-radius: 8px;
+  background: var(--airdrop-accent);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; font-weight: bold; flex-shrink: 0;
+}
+.airdrop-item .info { flex: 1; min-width: 0; }
+.airdrop-item .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.airdrop-item .meta-row { font-size: 0.78rem; color: var(--ink-soft); display: flex; gap: 8px; flex-wrap: wrap; }
+.airdrop-item .expiry { font-weight: 600; }
+.airdrop-item .expiry.soon { color: var(--pen); }
+.airdrop-item a.dl {
+  text-decoration: none;
+  color: #fff;
+  background: var(--airdrop-accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 7px 14px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.airdrop-item a.dl:hover { background: var(--airdrop-accent-dark); }
+
+.airdrop-hint-banner {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-top: 10px;
+  text-align: center;
+}
+
+.airdrop-usage-wrap { margin-top: 14px; }
+.airdrop-usage-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(47, 102, 144, 0.15);
+  overflow: hidden;
+}
+.airdrop-usage-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--airdrop-accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.airdrop-usage-bar.full { background: var(--pen); }
+.airdrop-usage-label {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin-top: 4px;
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .airdrop-dropzone { padding: 26px 14px; }
+}
+
+@media (max-width: 420px) {
+  .airdrop-item { flex-wrap: wrap; }
+  .airdrop-item .info { min-width: 140px; }
+  .airdrop-item a.dl { margin-left: auto; }
+}
+
+/* ---- Clipboard clips (v1.5.0) ---------------------------------------- */
+.airdrop-clips-panel {
+  margin-top: 18px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  border-left: 4px solid var(--airdrop-accent);
+}
+.airdrop-clips-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+}
+.airdrop-clips-title .hint { font-weight: 400; font-size: 0.78rem; }
+
+.airdrop-clip-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.airdrop-clip-composer textarea,
+.apple-composer textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border-radius: var(--radius);
+  border: 1px solid rgba(31, 44, 76, 0.15);
+  padding: 10px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  background: var(--paper);
+  color: var(--ink);
+}
+.airdrop-clip-composer-row,
+.apple-composer-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.airdrop-clip-autocopy-hint {
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  margin: -2px 0 10px;
+}
+
+.airdrop-clips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+.airdrop-clip {
+  background: var(--paper);
+  border: 1px solid rgba(31, 44, 76, 0.08);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+.airdrop-clip.newest {
+  border-color: var(--airdrop-accent);
+  box-shadow: 0 0 0 3px var(--airdrop-accent-soft);
+}
+.airdrop-clip-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+}
+.airdrop-clip-source { font-weight: 600; color: var(--airdrop-accent-dark); }
+.airdrop-clip-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  margin-bottom: 8px;
+}
+.airdrop-clip-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.airdrop-clip-actions button {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+}
+.airdrop-clip-copy {
+  background: var(--airdrop-accent);
+  color: #fff;
+}
+.airdrop-clip-copy:hover { background: var(--airdrop-accent-dark); }
+.airdrop-clip-del {
+  background: transparent;
+  color: var(--ink-soft);
+  padding: 5px 8px !important;
+}
+.airdrop-clip-del:hover { color: var(--pen); background: rgba(31, 44, 76, 0.06); }
+
+/* ---- Apple-style AirDrop view (v1.5.0) -------------------------------- */
+.apple-airdrop-root {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.apple-airdrop-header {
+  text-align: center;
+  padding: 18px 0 8px;
+}
+.apple-airdrop-radar { display: flex; justify-content: center; }
+.apple-device-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 34px;
+  border-radius: 24px;
+  background: var(--airdrop-accent-soft);
+  border: 2px solid var(--airdrop-accent);
+  box-shadow: 0 0 0 8px rgba(47, 102, 144, 0.08);
+}
+.apple-device-icon { font-size: 2.2rem; }
+.apple-device-name { font-weight: 700; }
+.apple-device-sub { font-size: 0.75rem; color: var(--ink-soft); }
+.apple-airdrop-caption {
+  margin-top: 14px;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.apple-share-window {
+  margin-top: 16px;
+  background: var(--card);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(31, 44, 76, 0.08);
+  padding: 16px;
+}
+.apple-share-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+  color: var(--ink-soft);
+}
+
+.apple-clips-panel { margin-top: 16px; }
+.apple-clips-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+.apple-clips-bubbles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.apple-clip-bubble {
+  background: var(--card);
+  border: 1px solid rgba(31, 44, 76, 0.08);
+  border-radius: 16px;
+  border-top-left-radius: 4px;
+  padding: 12px 14px;
+  max-width: 88%;
+  align-self: flex-start;
+  box-shadow: var(--shadow);
+}
+.apple-clip-bubble.newest {
+  border-color: var(--airdrop-accent);
+  box-shadow: 0 0 0 3px var(--airdrop-accent-soft);
+}
+.apple-clip-bubble-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.apple-clip-sender { font-weight: 700; color: var(--airdrop-accent-dark); }
+.apple-clip-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+.apple-clip-actions { display: flex; gap: 8px; }
+.apple-clip-actions button {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+}
+.apple-clip-copy { background: var(--airdrop-accent); color: #fff; }
+.apple-clip-copy:hover { background: var(--airdrop-accent-dark); }
+.apple-clip-del {
+  background: transparent;
+  color: var(--ink-soft);
+}
+.apple-clip-del:hover { color: var(--pen); }
+.apple-clip-empty { font-size: 0.85rem; color: var(--ink-soft); }
+.apple-composer { margin-top: 12px; }
+.apple-send { background: var(--airdrop-accent); }
+
+.airdrop-item.airdrop-item-apple {
+  border-left-width: 2px;
+  border-radius: 12px;
+}
+
+@media (max-width: 420px) {
+  .apple-clip-bubble { max-width: 100%; }
+}
